@@ -2,27 +2,76 @@ schema: spec-driven
 
 context: |
   Valoriza MEI: SaaS de gestão para MEI (precificação por markup, controle de estoque,
-  alertas de ruptura e sugestões sazonais).
+  fluxo de caixa, alertas de ruptura e sugestões sazonais).
   Todos os artefatos devem ser escritos em português do Brasil.
   Stack: Java 21, Spring Boot 4.x (starters modulares, ex.: spring-boot-starter-webmvc),
-  Maven, PostgreSQL 15, Liquibase, springdoc-openapi 3, Testcontainers. 
+  Maven, PostgreSQL 15, Liquibase, springdoc-openapi 3, Testcontainers, ArchUnit.
   Ambiente de desenvolvimento do autor: Windows (usar mvnw.cmd nos comandos).
-  Pacote base br.com.valorizamei, organizado por feature:
-  br.com.valorizamei.<feature>.{controller,service,repository,model,dto}, além disso aplicar solid e clean code;
-  código transversal em br.com.valorizamei.shared.
+
+  Arquitetura (verificada pelos testes ArchUnit em src/test/.../arquitetura):
+  pacote base br.com.valorizamei, organizado por feature:
+  br.com.valorizamei.<feature>.{controller,service,factory,repository,model,dto};
+  código transversal em br.com.valorizamei.shared (não depende de nenhuma feature).
+  Direção das camadas: controller -> service -> factory/repository -> model.
+  - controller: só acessa service e dto; nunca repository nem model.
+  - service: regras de negócio; usa factory, repository, model e dto.
+  - factory: converte dto <-> model; acessada somente pelo service.
+  - repository: persistência; acessado somente pelo service.
+  - Outras features só podem ser acessadas pelas camadas service e dto; sem ciclos entre features.
+  - Injeção sempre por construtor; aplicar SOLID e Clean Code.
   Dinheiro e percentuais sempre BigDecimal; nunca double ou float em regra de negócio.
   Multi-tenant por coluna tenant_id; o tenant vem sempre do JWT, nunca do corpo, query ou caminho.
   Schema do banco somente via changesets Liquibase; ddl-auto=validate.
-  API versionada em /api/v1;
-  Fórmulas do artigo: Markup = 100 / [100 - (DV + DF + ML)]; PV = Custo Direto × Markup.
-  Cenário de referência para testes de aceitação: custo direto 18,00; DV 11%;
-  DF 13% (despesas fixas 780,00 sobre receita estimada 6.000,00); ML 20%;
-  markup 1,7857; preço calculado 32,14; preço sugerido 32,90; estoque inicial 15, mínimo 3.
-  
+  API versionada em /api/v1.
+
+  Requisitos funcionais do artigo (seção 4.2), que devem ser referenciados pelo código nas specs:
+  RF01 Permitir o cadastro de produtos com o respectivo custo direto de aquisição.
+  RF02 Permitir o registro de despesas, classificadas como fixas ou variáveis.
+  RF03 Calcular o índice de markup a partir das despesas variáveis, das despesas fixas
+       rateadas e da margem de lucro desejada.
+  RF04 Calcular o preço de venda sugerido a partir do custo direto e do índice de markup.
+  RF05 Ratear as despesas fixas sobre a receita mensal estimada do negócio.
+  RF06 Registrar entradas e saídas de estoque vinculadas a cada produto.
+  RF07 Refletir as entradas e saídas de estoque no fluxo de caixa.
+  RF08 Emitir alerta de ruptura quando o estoque de um produto atingir o mínimo definido.
+  RF09 Alertar sobre datas comemorativas próximas e sugerir promoções, reposições ou
+       reajustes de preço com base no giro de cada produto.
+  RF10 Autenticar os usuários e garantir que cada MEI acesse somente os próprios dados.
+  RF11 Disponibilizar a API do sistema documentada no padrão OpenAPI.
+
+  Fórmulas do artigo (seção 2.2), com percentuais em pontos percentuais:
+  Markup = 100 / [100 - (DV + DF + ML)]; PV = Custo Direto × Markup.
+  DF = (soma das despesas fixas mensais / receita mensal estimada) × 100.
+  O PV é calculado com o markup sem arredondamento e arredondado ao final para 2 casas
+  (HALF_UP); o markup é exibido com 4 casas.
+
+  Cenário de referência para testes de aceitação (estudo de caso da seção 4.1, loja de ferramentas):
+  - Despesas fixas: aluguel 1.200,00; internet e telefone 120,00; honorários contábeis 80,00
+    (total 1.400,00); receita mensal estimada 14.000,00 -> DF 10%.
+  - Despesas variáveis: taxa de cartão 3% + custo de entrega 2% -> DV 5%. Margem de lucro ML 25%.
+  - Furadeira de impacto 650 W, custo direto 180,00 -> markup 100/60 = 1,6667; PV 300,00.
+  - Preço da concorrência 239,90 -> margem efetiva de cerca de 10% (9,97%).
+  - Estoque (produto; custo; estoque atual; estoque mínimo; vendas nos últimos 30 dias):
+    Furadeira de impacto 650 W; 180,00; 5; 3; 6
+    Jogo de chaves de fenda (6 peças); 25,00; 20; 5; 9
+    Martelo unha 27 mm; 22,00; 15; 4; 5
+    Trena 5 m; 12,00; 4; 5; 10
+    Alicate universal 8"; 28,00; 12; 4; 4
+    Caixa de ferramentas plástica; 45,00; 10; 3; 0
+  - Ruptura (RF08): alerta quando estoque atual <= estoque mínimo -> somente a Trena 5 m (4 <= 5).
+  - Datas comemorativas (RF09): calendário anual (Dia das Mães, Dia dos Pais, Dia das Crianças,
+    Black Friday, Natal); aviso com 30 dias de antecedência. Dia dos Pais = 2º domingo de agosto
+    (09/08/2026; aviso a partir de 10/07/2026). Sugestões: reforçar estoque quando vendas em
+    30 dias > estoque atual (Furadeira: 6 > 5; Trena 5 m: 10 > 4); promoção quando vendas em 30 dias = 0 e
+    estoque atual > 0 (Caixa de ferramentas plástica: 0 vendas, 10 unidades).
+  - A data atual vem de um java.time.Clock injetável, para que os testes fixem a data.
 
 rules:
   specs:
     - Todo requirement usa SHALL ou MUST e tem ao menos um cenário WHEN/THEN
+    - Todo requirement indica o(s) RF ou RNF do artigo que atende (ex.: "Atende: RF03, RF04")
+    - Os cenários usam os valores do cenário de referência da loja de ferramentas sempre que aplicável
   tasks:
     - Cada cenário da spec deve ter ao menos uma tarefa de teste correspondente
     - Quando a change tocar dados de negócio, incluir tarefa de teste de isolamento entre tenants
+    - Testes de aceitação registram, por RF, a ação executada, o resultado esperado e o resultado obtido (seção 4.6 do artigo)
