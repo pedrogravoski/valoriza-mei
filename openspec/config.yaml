@@ -69,7 +69,7 @@ context: |
 rules:
   specs:
     - Todo requirement usa SHALL ou MUST e tem ao menos um cenário WHEN/THEN
-    - Todo requirement indica o(s) RF ou RNF do artigo que atende (ex.: "Atende: RF03, RF04")
+    - 'Todo requirement indica o(s) RF ou RNF do artigo que atende (ex.: "Atende: RF03, RF04")'
     - Os cenários usam os valores do cenário de referência da loja de ferramentas sempre que aplicável
   tasks:
     - Cada cenário da spec deve ter ao menos uma tarefa de teste correspondente

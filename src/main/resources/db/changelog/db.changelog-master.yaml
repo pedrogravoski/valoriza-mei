@@ -1,0 +1,4 @@
+# Changelog mestre do Valoriza MEI.
+# Cada change inclui seus changesets em db/changelog/changes/, com nomes numerados
+# (ex.: 001-usuarios.yaml), na ordem em que devem ser aplicados.
+databaseChangeLog: []

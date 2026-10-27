@@ -1,1 +1,9 @@
-services: {}
+services:
+  postgres:
+    image: 'postgres:15'
+    environment:
+      - 'POSTGRES_DB=valorizamei'
+      - 'POSTGRES_USER=valorizamei'
+      - 'POSTGRES_PASSWORD=valorizamei'
+    ports:
+      - '5432:5432'

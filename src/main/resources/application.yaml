@@ -1,6 +1,18 @@
 spring:
   application:
     name: valoriza-mei
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+  liquibase:
+    change-log: classpath:db/changelog/db.changelog-master.yaml
+  mvc:
+    problemdetails:
+      enabled: true
+  web:
+    locale: pt_BR
+    locale-resolver: fixed
 
 management:
   endpoints:
@@ -12,3 +24,8 @@ management:
       show-details: never
       probes:
         enabled: false
+
+springdoc:
+  api-docs:
+    version: openapi_3_1
+  paths-to-match: /api/v1/**
