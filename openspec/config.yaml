@@ -50,7 +50,6 @@ context: |
     (total 1.400,00); receita mensal estimada 14.000,00 -> DF 10%.
   - Despesas variáveis: taxa de cartão 3% + custo de entrega 2% -> DV 5%. Margem de lucro ML 25%.
   - Furadeira de impacto 650 W, custo direto 180,00 -> markup 100/60 = 1,6667; PV 300,00.
-  - Preço da concorrência 239,90 -> margem efetiva de cerca de 10% (9,97%).
   - Estoque (produto; custo; estoque atual; estoque mínimo; vendas nos últimos 30 dias):
     Furadeira de impacto 650 W; 180,00; 5; 3; 6
     Jogo de chaves de fenda (6 peças); 25,00; 20; 5; 9
