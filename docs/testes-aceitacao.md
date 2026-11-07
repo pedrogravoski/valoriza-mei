@@ -25,6 +25,41 @@ Isolamento dos produtos (RNF07):
 | A loja cadastra um produto enviando `tenantId` da papelaria no corpo | O produto é gravado para a loja | Gravado para a loja; a listagem da papelaria continua vazia | Sim |
 | `GET /api/v1/produtos` sem token | 401 em Problem Details | 401 "Não autenticado" com `WWW-Authenticate: Bearer` | Sim |
 
+## RF02 — Permitir o registro de despesas, classificadas como fixas ou variáveis
+
+Change: `despesas`. Data: 07/11/2026.
+
+| Ação executada | Resultado esperado | Resultado obtido | Atendido |
+|---|---|---|---|
+| `POST /api/v1/despesas` com "Aluguel", tipo `FIXA` e valor mensal 1200.00 | 201 com a despesa fixa, sem percentual | 201 com `valorMensal` 1200.00, `percentual` nulo e `Location` `/api/v1/despesas/{id}` | Sim |
+| `POST /api/v1/despesas` com "Taxa de cartão", tipo `VARIAVEL` e percentual 3.00 | 201 com a despesa variável, sem valor mensal | 201 com `percentual` 3.00 e `valorMensal` nulo | Sim |
+| Despesa fixa com percentual, fixa sem valor mensal, variável com valor mensal e variável sem percentual | 400 apontando o campo incompatível ou ausente | 400 "Dados inválidos" com o item em `erros` no campo indicado (`RegistroDeDespesaTest`) | Sim |
+| Valor mensal 1200.005, percentual 100.00 e tipo `OUTRA` | 400, sem gravar | 400 nos três casos; nenhuma despesa gravada | Sim |
+| Registro de "ALUGUEL" com o "Aluguel" já cadastrado | 409, sem duplicar | 409 "Despesa já cadastrada"; uma única despesa | Sim |
+| Registro das 5 despesas do estudo de caso e `GET /api/v1/despesas` e `?tipo=FIXA` | Lista em ordem alfabética e filtro pelo tipo | 5 despesas em ordem alfabética; o filtro devolve só Aluguel, Honorários e Internet | Sim |
+| `PUT` do aluguel para 1300.00, troca da internet para variável 1% e `DELETE` dos honorários | 200, 200 e 204 | Valores alterados confirmados na consulta; após a exclusão, a consulta responde 404 | Sim |
+
+## RF05 — Ratear as despesas fixas sobre a receita mensal estimada do negócio
+
+Change: `despesas`. Data: 07/11/2026.
+
+| Ação executada | Resultado esperado | Resultado obtido | Atendido |
+|---|---|---|---|
+| `PUT /api/v1/parametros-financeiros` com receita 14000.00 e margem 25.00 | 200 com os valores gravados | 200 com `receitaMensalEstimada` 14000.00 e `margemDeLucro` 25.00 | Sim |
+| `GET /api/v1/despesas/rateio` com as 5 despesas do estudo de caso e receita 14000.00 | Total das fixas 1.400,00, DF 10% e DV 5% (seção 4.1) | `totalDespesasFixas` 1400.00, `percentualDespesasFixas` 10.00 e `percentualDespesasVariaveis` 5.00 | Sim |
+| Rateio com aluguel 1300.00 após o reajuste e sem os honorários | DF = 1.420,00 × 100 / 14.000,00 = 10,14% | `totalDespesasFixas` 1420.00 e `percentualDespesasFixas` 10.14 | Sim |
+| Rateio com fixa 1000.00 e receita 3000.00 | DF exibido com 2 casas (33,33) e mantido sem arredondamento para o markup | 33.33 na API; 33.3333333333 no cálculo interno (`RateioServiceTest`) | Sim |
+| Rateio antes de informar a receita | Receita e DF nulos, demais valores calculados | `receitaMensalEstimada` e `percentualDespesasFixas` nulos | Sim |
+
+Isolamento de despesas e parâmetros (RNF07):
+
+| Ação executada | Resultado esperado | Resultado obtido | Atendido |
+|---|---|---|---|
+| A papelaria envia `GET`, `PUT` e `DELETE` para o id do aluguel da loja | 404 nas três, sem alterar o aluguel | 404 nas três; o aluguel continua com o valor da loja | Sim |
+| Loja (5 despesas, receita 14000.00) e papelaria (conta de luz 300.00, receita 6000.00) consultam o rateio | Cada uma recebe o próprio rateio | Loja: DF 10.00 e DV 5.00; papelaria: total 300.00, DF 5.00 e DV 0.00 (`DespesaIsolamentoTest`) | Sim |
+| A papelaria grava os parâmetros enviando o `tenantId` da loja no corpo | Só os parâmetros da papelaria mudam | Os parâmetros da loja continuam 14000.00 e 25.00 | Sim |
+| `GET /api/v1/despesas` e `GET /api/v1/parametros-financeiros` sem token | 401 em Problem Details | 401 "Não autenticado" com `WWW-Authenticate: Bearer` | Sim |
+
 ## RF10 — Autenticar os usuários e garantir que cada MEI acesse somente os próprios dados
 
 Change: `autenticacao-multitenant`. Data: 03/11/2026.

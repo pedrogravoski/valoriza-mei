@@ -9,7 +9,8 @@ SaaS de gestão para o Microempreendedor Individual (MEI): precificação por ma
 | Base da API (`fundacao-api`) | Pronta: PostgreSQL 15, Liquibase, Testcontainers, OpenAPI/Swagger e erros padronizados |
 | Autenticação e multi-tenant (`autenticacao-multitenant`) | Pronta: cadastro, login com JWT, senhas em BCrypt e isolamento por MEI |
 | Produtos (`cadastro-produtos`) | Pronta: cadastro, listagem, consulta, alteração e exclusão, com custo direto e estoque mínimo |
-| Despesas, precificação, estoque, fluxo de caixa e alertas | Planejados (ver `openspec/`) |
+| Despesas (`despesas`) | Pronta: despesas fixas e variáveis, receita mensal estimada, margem de lucro e rateio (DF e DV) |
+| Precificação, estoque, fluxo de caixa e alertas | Planejados (ver `openspec/`) |
 
 Endpoints disponíveis:
 
@@ -19,6 +20,10 @@ Endpoints disponíveis:
 | `GET /api/v1/conta` | Exige token |
 | `POST /api/v1/produtos`, `GET /api/v1/produtos` | Exige token |
 | `GET`, `PUT` e `DELETE /api/v1/produtos/{id}` | Exige token |
+| `POST /api/v1/despesas`, `GET /api/v1/despesas` (filtro opcional `?tipo=FIXA` ou `VARIAVEL`) | Exige token |
+| `GET`, `PUT` e `DELETE /api/v1/despesas/{id}` | Exige token |
+| `GET /api/v1/despesas/rateio` | Exige token |
+| `GET` e `PUT /api/v1/parametros-financeiros` | Exige token |
 
 Qualquer outra rota em `/api/v1` exige token e responde no formato padrão de erro.
 
@@ -80,7 +85,7 @@ Todos os comandos abaixo são executados na pasta do projeto, no PowerShell.
    .\mvnw.cmd verify
    ```
 
-   O esperado é `BUILD SUCCESS` com 124 testes.
+   O esperado é `BUILD SUCCESS` com 183 testes.
 
 3. **Suba a aplicação:**
 
@@ -131,6 +136,31 @@ Com o token informado no **Authorize**, em **Produtos → `POST /api/v1/produtos
 - A resposta traz o `id` do produto, usado em `GET`, `PUT` e `DELETE /api/v1/produtos/{id}`. O `GET /api/v1/produtos` lista os produtos em ordem alfabética.
 - Cada MEI só enxerga os próprios produtos: o `id` de um produto de outro MEI responde 404.
 
+### Despesas e rateio pelo Swagger UI
+
+Os percentuais são em pontos percentuais: `3.00` é 3%.
+
+1. Em **Parâmetros financeiros → `PUT /api/v1/parametros-financeiros`**, informe a receita mensal estimada e a margem de lucro desejada:
+
+   ```json
+   {"receitaMensalEstimada": 14000.00, "margemDeLucro": 25.00}
+   ```
+
+2. Em **Despesas → `POST /api/v1/despesas`**, registre as despesas. A fixa informa só o `valorMensal`; a variável, só o `percentual` sobre o preço de venda:
+
+   ```json
+   {"descricao": "Aluguel", "tipo": "FIXA", "valorMensal": 1200.00}
+   ```
+
+   ```json
+   {"descricao": "Taxa de cartão", "tipo": "VARIAVEL", "percentual": 3.00}
+   ```
+
+3. Em **`GET /api/v1/despesas/rateio`**, consulte o rateio. Com as despesas do estudo de caso (aluguel 1.200,00, internet e telefone 120,00, honorários 80,00, cartão 3% e entrega 2%) e receita 14.000,00, o resultado é `totalDespesasFixas` 1400.00, `percentualDespesasFixas` (DF) 10.00 e `percentualDespesasVariaveis` (DV) 5.00.
+
+- Enquanto a receita não for informada, o rateio traz `receitaMensalEstimada` e `percentualDespesasFixas` nulos.
+- A descrição da despesa não pode se repetir no mesmo MEI, sem diferenciar maiúsculas e minúsculas (resposta 409).
+
 ### Segredo do token
 
 O token é assinado com o segredo `valorizamei.seguranca.jwt.segredo`. O `application.yaml` traz um valor padrão que serve **apenas para desenvolvimento e testes**. Em qualquer outro ambiente, defina a variável de ambiente `VALORIZAMEI_JWT_SEGREDO` com no mínimo 32 bytes; a aplicação não sobe com um segredo menor.
@@ -164,12 +194,15 @@ Usa o PostgreSQL 15 do `compose.yaml` (dados mantidos entre execuções, porta 5
 | `401` com título "Credenciais inválidas" no login | E-mail ou senha errados. |
 | `404` "Produto não encontrado" | O `id` não existe ou é de um produto de outro MEI (o token é de outra conta). |
 | `409` "Produto já cadastrado" | Já existe um produto do MEI com o mesmo nome, mesmo com outra grafia de maiúsculas e minúsculas. |
+| `400` em `valorMensal` ou `percentual` ao registrar despesa | A despesa `FIXA` exige só o `valorMensal`, e a `VARIAVEL`, só o `percentual`. Envie apenas o campo do tipo escolhido. |
+| Rateio com `percentualDespesasFixas` nulo | A receita mensal estimada ainda não foi informada em `PUT /api/v1/parametros-financeiros`. |
 
 ## Organização do código
 
 - `br.com.valorizamei.<feature>.{controller,service,factory,repository,model,dto}`: cada funcionalidade em seu pacote, com camadas verificadas pelos testes de arquitetura (ArchUnit).
 - `br.com.valorizamei.autenticacao`: cadastro de conta, login e conta autenticada.
 - `br.com.valorizamei.produto`: cadastro dos produtos do MEI.
+- `br.com.valorizamei.despesa`: despesas fixas e variáveis, parâmetros financeiros (receita e margem) e rateio.
 - `br.com.valorizamei.shared`: código transversal (configuração da OpenAPI, tratamento de erros, segurança e acesso ao MEI do token em `TenantAtual`); não depende de nenhuma feature.
 - Isolamento entre MEIs: toda tabela de negócio tem `tenant_id`, preenchido e filtrado pelo service a partir de `TenantAtual`, nunca a partir da requisição.
 - `src/main/resources/db/changelog`: migrações Liquibase (o schema só muda por elas; `ddl-auto=validate`).

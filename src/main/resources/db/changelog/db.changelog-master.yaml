@@ -8,3 +8,6 @@ databaseChangeLog:
   - include:
       file: changes/002-criar-tabela-produto.yaml
       relativeToChangelogFile: true
+  - include:
+      file: changes/003-criar-tabelas-despesa-parametros.yaml
+      relativeToChangelogFile: true

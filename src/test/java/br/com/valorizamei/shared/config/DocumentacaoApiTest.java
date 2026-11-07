@@ -105,6 +105,19 @@ class DocumentacaoApiTest {
 			.andExpect(jsonPath("$.paths['/api/v1/produtos/{id}'].delete.security").doesNotExist());
 	}
 
+	@Test
+	void despesasEParametrosDocumentadosExigemToken() throws Exception {
+		mockMvc.perform(get("/v3/api-docs"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.paths['/api/v1/despesas'].get.tags[0]").value("Despesas"))
+			.andExpect(jsonPath("$.paths['/api/v1/despesas'].post.security").doesNotExist())
+			.andExpect(jsonPath("$.paths['/api/v1/despesas/{id}'].put.security").doesNotExist())
+			.andExpect(jsonPath("$.paths['/api/v1/despesas/rateio'].get.security").doesNotExist())
+			.andExpect(jsonPath("$.paths['/api/v1/parametros-financeiros'].get.tags[0]")
+				.value("Parâmetros financeiros"))
+			.andExpect(jsonPath("$.paths['/api/v1/parametros-financeiros'].put.security").doesNotExist());
+	}
+
 	private Set<String> caminhosDocumentados() throws Exception {
 		String especificacao = mockMvc.perform(get("/v3/api-docs"))
 			.andExpect(status().isOk())

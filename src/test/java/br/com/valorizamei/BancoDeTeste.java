@@ -13,6 +13,8 @@ public final class BancoDeTeste {
 	}
 
 	public static void limpar(JdbcTemplate jdbcTemplate) {
+		jdbcTemplate.update("delete from despesa");
+		jdbcTemplate.update("delete from parametros_financeiros");
 		jdbcTemplate.update("delete from produto");
 		jdbcTemplate.update("delete from usuario");
 		jdbcTemplate.update("delete from mei");
