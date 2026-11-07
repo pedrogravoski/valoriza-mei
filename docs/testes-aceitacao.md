@@ -92,6 +92,42 @@ Isolamento da precificação (RNF07):
 | A papelaria consulta o preço da furadeira da loja | 404 | 404 "Produto não encontrado" | Sim |
 | `GET /api/v1/precificacao` sem token | 401 em Problem Details | 401 "Não autenticado" com `WWW-Authenticate: Bearer` | Sim |
 
+## RF06 — Registrar entradas e saídas de estoque vinculadas a cada produto
+
+Change: `estoque-fluxo-caixa`. Data: 07/11/2026.
+
+| Ação executada | Resultado esperado | Resultado obtido | Atendido |
+|---|---|---|---|
+| `POST /api/v1/estoque/movimentacoes` com a entrada de 10 furadeiras | 201 com valor unitário igual ao custo direto e estoque 10 | 201 com `valorUnitario` 180.00, `valorTotal` 1800.00 e `estoqueAtual` 10 | Sim |
+| Saída de 2 furadeiras com valor unitário 300.00 | 201 com o valor informado e estoque 8 | 201 com `valorTotal` 600.00 e `estoqueAtual` 8 | Sim |
+| Entradas e saídas dos 6 produtos do estudo de caso e `GET /api/v1/estoque` | Estoques da seção 4.1: alicate 12, caixa 10, furadeira 5, jogo de chaves 20, martelo 15 e trena 4 | Estoques e mínimos iguais aos da seção 4.1; saldo igual à soma das movimentações (`ConsultaDeEstoqueTest`) | Sim |
+| Venda de 5 trenas com 4 em estoque | 422, sem gravar movimentação nem lançamento | 422 "Estoque insuficiente": "O produto Trena 5 m tem 4 unidades em estoque; não é possível registrar a saída de 5."; estoque mantido em 4 | Sim |
+| Compra com valor unitário, venda sem valor unitário, quantidade 0 e data futura | 400 apontando o campo, sem gravar | 400 com `valorUnitario`, `quantidade` ou `data` em `erros` (`MovimentacaoEstoqueTest`) | Sim |
+| Movimentação sem data e venda com data de dia anterior (data atual 15/07/2026) | Data atual por padrão e data informada mantida | `data` 2026-07-15 e 2026-07-10 | Sim |
+| `GET /api/v1/estoque/movimentacoes?produtoId=<furadeira>` | Movimentações da furadeira, da mais recente para a mais antiga | Venda de 10/07 seguida da compra de 01/07 | Sim |
+| `DELETE /api/v1/produtos/{id}` da furadeira com movimentações | 409, sem excluir | 409 "Produto com movimentações"; a furadeira continua cadastrada | Sim |
+
+## RF07 — Refletir as entradas e saídas de estoque no fluxo de caixa
+
+Change: `estoque-fluxo-caixa`. Data: 07/11/2026.
+
+| Ação executada | Resultado esperado | Resultado obtido | Atendido |
+|---|---|---|---|
+| Entrada de 10 furadeiras em 01/07/2026 | Saída de caixa de 10 × 180,00 | Lançamento `SAIDA` "Compra: 10 × Furadeira de impacto 650 W" de 1800.00 em 2026-07-01 | Sim |
+| Venda de 2 furadeiras a 300,00 em 10/07/2026 | Entrada de caixa de 2 × 300,00 | Lançamento `ENTRADA` "Venda: 2 × Furadeira de impacto 650 W" de 600.00 em 2026-07-10 | Sim |
+| `GET /api/v1/fluxo-de-caixa?inicio=2026-07-01&fim=2026-07-10` com compra em 01/07, venda em 05/07 e venda em 12/07 | Só os lançamentos do período, com totais e saldo | Entradas 600.00, saídas 1800.00, saldo -1200.00 e 2 lançamentos | Sim |
+| Fluxo de caixa sem período, com data atual 15/07/2026 | Mês atual (01/07 a 31/07) | `inicio` 2026-07-01, `fim` 2026-07-31, sem o lançamento de 30/06 | Sim |
+| Estudo de caso completo na API em execução (mês atual) | Compras de 4.211,00 (soma das 6 entradas pelo custo) e vendas de 2.745,06 | `totalSaidas` 4211.00, `totalEntradas` 2745.06 e `saldo` -1465.94 | Sim |
+| Venda recusada por falta de estoque e período invertido | Caixa inalterado; 400 no período invertido | Nenhum lançamento novo; 400 "Período inválido" | Sim |
+
+Isolamento de estoque e caixa (RNF07):
+
+| Ação executada | Resultado esperado | Resultado obtido | Atendido |
+|---|---|---|---|
+| A papelaria registra uma entrada na furadeira da loja | 404, sem alterar o estoque da loja | 404 "Produto não encontrado"; estoque da loja mantido | Sim |
+| Loja (10 furadeiras) e papelaria (50 cadernos) consultam estoque, movimentações e caixa | Cada MEI vê somente os próprios dados | Loja: furadeira 10 e saídas 1800.00; papelaria: caderno 50 e saídas 800.00; movimentação da loja dá 404 para a papelaria | Sim |
+| `GET /api/v1/estoque` e `GET /api/v1/fluxo-de-caixa` sem token | 401 em Problem Details | 401 "Não autenticado" com `WWW-Authenticate: Bearer` | Sim |
+
 ## RF10 — Autenticar os usuários e garantir que cada MEI acesse somente os próprios dados
 
 Change: `autenticacao-multitenant`. Data: 03/11/2026.

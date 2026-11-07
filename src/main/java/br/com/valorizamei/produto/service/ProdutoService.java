@@ -75,9 +75,20 @@ public class ProdutoService {
 		return produtoFactory.paraResponse(gravar(produto));
 	}
 
+	/**
+	 * Um produto com movimentações de estoque não é excluído, para preservar o histórico de
+	 * estoque e de caixa: as chaves estrangeiras do banco recusam a exclusão.
+	 */
 	@Transactional
 	public void excluir(UUID id) {
 		produtoRepository.delete(buscarDoMei(id));
+		try {
+			produtoRepository.flush();
+		}
+		catch (DataIntegrityViolationException ex) {
+			throw new ErroDeNegocioException(HttpStatus.CONFLICT, "Produto com movimentações",
+					"O produto tem movimentações de estoque e não pode ser excluído.");
+		}
 	}
 
 	private Produto buscarDoMei(UUID id) {

@@ -1,0 +1,182 @@
+# Movimentações e saldo de estoque e lançamentos do fluxo de caixa (change estoque-fluxo-caixa).
+databaseChangeLog:
+  - changeSet:
+      id: 004-criar-tabela-movimentacao-estoque
+      author: valoriza-mei
+      changes:
+        - createTable:
+            tableName: movimentacao_estoque
+            remarks: Entrada (compra) ou saída (venda) de estoque de um produto do MEI (RF06).
+            columns:
+              - column:
+                  name: id
+                  type: uuid
+                  constraints:
+                    primaryKey: true
+                    primaryKeyName: pk_movimentacao_estoque
+              - column:
+                  name: tenant_id
+                  type: uuid
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_movimentacao_estoque_mei
+                    references: mei(id)
+              - column:
+                  name: produto_id
+                  type: uuid
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_movimentacao_estoque_produto
+                    references: produto(id)
+              - column:
+                  name: tipo
+                  type: varchar(7)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: quantidade
+                  type: integer
+                  constraints:
+                    nullable: false
+              - column:
+                  name: valor_unitario
+                  type: numeric(12,2)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: valor_total
+                  type: numeric(14,2)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: data
+                  type: date
+                  constraints:
+                    nullable: false
+              - column:
+                  name: criado_em
+                  type: timestamp with time zone
+                  constraints:
+                    nullable: false
+        - createIndex:
+            tableName: movimentacao_estoque
+            indexName: idx_movimentacao_estoque_tenant_produto_data
+            columns:
+              - column:
+                  name: tenant_id
+              - column:
+                  name: produto_id
+              - column:
+                  name: data
+        # Restrições de verificação não têm change portável no Liquibase.
+        - sql:
+            sql: >
+              alter table movimentacao_estoque add constraint ck_movimentacao_estoque_tipo
+                check (tipo in ('ENTRADA', 'SAIDA'));
+              alter table movimentacao_estoque add constraint ck_movimentacao_estoque_valores
+                check (quantidade > 0 and valor_unitario > 0 and valor_total > 0);
+
+  - changeSet:
+      id: 004-criar-tabela-saldo-estoque
+      author: valoriza-mei
+      changes:
+        - createTable:
+            tableName: saldo_estoque
+            remarks: Estoque atual de cada produto (entradas menos saídas); nunca negativo (RF06).
+            columns:
+              - column:
+                  name: produto_id
+                  type: uuid
+                  constraints:
+                    primaryKey: true
+                    primaryKeyName: pk_saldo_estoque
+                    foreignKeyName: fk_saldo_estoque_produto
+                    references: produto(id)
+              - column:
+                  name: tenant_id
+                  type: uuid
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_saldo_estoque_mei
+                    references: mei(id)
+              - column:
+                  name: quantidade
+                  type: integer
+                  constraints:
+                    nullable: false
+        - createIndex:
+            tableName: saldo_estoque
+            indexName: idx_saldo_estoque_tenant_id
+            columns:
+              - column:
+                  name: tenant_id
+        - sql:
+            sql: >
+              alter table saldo_estoque add constraint ck_saldo_estoque_quantidade check (quantidade >= 0);
+
+  - changeSet:
+      id: 004-criar-tabela-lancamento-caixa
+      author: valoriza-mei
+      changes:
+        - createTable:
+            tableName: lancamento_caixa
+            remarks: Entrada ou saída de dinheiro no fluxo de caixa do MEI, gerada por uma movimentação de estoque (RF07).
+            columns:
+              - column:
+                  name: id
+                  type: uuid
+                  constraints:
+                    primaryKey: true
+                    primaryKeyName: pk_lancamento_caixa
+              - column:
+                  name: tenant_id
+                  type: uuid
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_lancamento_caixa_mei
+                    references: mei(id)
+              - column:
+                  name: tipo
+                  type: varchar(7)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: descricao
+                  type: varchar(200)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: valor
+                  type: numeric(14,2)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: data
+                  type: date
+                  constraints:
+                    nullable: false
+              - column:
+                  name: movimentacao_estoque_id
+                  type: uuid
+                  constraints:
+                    unique: true
+                    uniqueConstraintName: uk_lancamento_caixa_movimentacao
+                    foreignKeyName: fk_lancamento_caixa_movimentacao
+                    references: movimentacao_estoque(id)
+              - column:
+                  name: criado_em
+                  type: timestamp with time zone
+                  constraints:
+                    nullable: false
+        - createIndex:
+            tableName: lancamento_caixa
+            indexName: idx_lancamento_caixa_tenant_data
+            columns:
+              - column:
+                  name: tenant_id
+              - column:
+                  name: data
+        - sql:
+            sql: >
+              alter table lancamento_caixa add constraint ck_lancamento_caixa_tipo check (tipo in ('ENTRADA', 'SAIDA'));
+              alter table lancamento_caixa add constraint ck_lancamento_caixa_valor check (valor > 0);

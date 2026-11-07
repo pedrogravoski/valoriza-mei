@@ -130,6 +130,19 @@ class DocumentacaoApiTest {
 			.andExpect(jsonPath("$.paths['/api/v1/precificacao/produtos/{id}'].get.responses['404']").exists());
 	}
 
+	@Test
+	void estoqueEFluxoDeCaixaDocumentadosExigemToken() throws Exception {
+		mockMvc.perform(get("/v3/api-docs"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.paths['/api/v1/estoque/movimentacoes'].post.tags[0]").value("Estoque"))
+			.andExpect(jsonPath("$.paths['/api/v1/estoque/movimentacoes'].post.security").doesNotExist())
+			.andExpect(jsonPath("$.paths['/api/v1/estoque/movimentacoes'].post.responses['422']").exists())
+			.andExpect(jsonPath("$.paths['/api/v1/estoque/movimentacoes/{id}'].get.security").doesNotExist())
+			.andExpect(jsonPath("$.paths['/api/v1/estoque'].get.security").doesNotExist())
+			.andExpect(jsonPath("$.paths['/api/v1/fluxo-de-caixa'].get.tags[0]").value("Fluxo de caixa"))
+			.andExpect(jsonPath("$.paths['/api/v1/fluxo-de-caixa'].get.security").doesNotExist());
+	}
+
 	private Set<String> caminhosDocumentados() throws Exception {
 		String especificacao = mockMvc.perform(get("/v3/api-docs"))
 			.andExpect(status().isOk())

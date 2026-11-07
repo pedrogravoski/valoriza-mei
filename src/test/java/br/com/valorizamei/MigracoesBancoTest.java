@@ -164,6 +164,70 @@ class MigracoesBancoTest {
 			.isInstanceOf(DataIntegrityViolationException.class);
 	}
 
+	@Test
+	void tabelasDeEstoqueECaixaSaoCriadas() {
+		Integer tabelas = jdbcTemplate.queryForObject("select count(*) from information_schema.tables "
+				+ "where table_name in ('movimentacao_estoque', 'saldo_estoque', 'lancamento_caixa')", Integer.class);
+
+		assertThat(tabelas).isEqualTo(3);
+	}
+
+	@Test
+	void bancoRecusaMovimentacaoComQuantidadeZero() {
+		UUID mei = inserirMei();
+		UUID produto = inserirProdutoComId(mei);
+
+		assertThatThrownBy(() -> inserirMovimentacao(mei, produto, "ENTRADA", 0))
+			.isInstanceOf(DataIntegrityViolationException.class);
+	}
+
+	@Test
+	void bancoRecusaTipoDeMovimentacaoDesconhecido() {
+		UUID mei = inserirMei();
+		UUID produto = inserirProdutoComId(mei);
+
+		assertThatThrownBy(() -> inserirMovimentacao(mei, produto, "AJUSTE", 1))
+			.isInstanceOf(DataIntegrityViolationException.class);
+	}
+
+	@Test
+	void bancoRecusaSaldoNegativo() {
+		UUID mei = inserirMei();
+		UUID produto = inserirProdutoComId(mei);
+
+		assertThatThrownBy(() -> jdbcTemplate.update(
+				"insert into saldo_estoque (produto_id, tenant_id, quantidade) values (?, ?, -1)", produto, mei))
+			.isInstanceOf(DataIntegrityViolationException.class);
+	}
+
+	@Test
+	void movimentacaoTemNoMaximoUmLancamentoDeCaixa() {
+		UUID mei = inserirMei();
+		UUID movimentacao = inserirMovimentacao(mei, inserirProdutoComId(mei), "ENTRADA", 1);
+		String insereLancamento = "insert into lancamento_caixa (id, tenant_id, tipo, descricao, valor, data, "
+				+ "movimentacao_estoque_id, criado_em) values (?, ?, 'SAIDA', 'Compra: 1 × Trena 5 m', 12.00, "
+				+ "current_date, ?, now())";
+		jdbcTemplate.update(insereLancamento, UUID.randomUUID(), mei, movimentacao);
+
+		assertThatThrownBy(() -> jdbcTemplate.update(insereLancamento, UUID.randomUUID(), mei, movimentacao))
+			.isInstanceOf(DuplicateKeyException.class);
+	}
+
+	private UUID inserirProdutoComId(UUID mei) {
+		UUID produto = UUID.randomUUID();
+		jdbcTemplate.update("insert into produto (id, tenant_id, nome, custo_direto, estoque_minimo, criado_em, "
+				+ "atualizado_em) values (?, ?, 'Trena 5 m', 12.00, 5, now(), now())", produto, mei);
+		return produto;
+	}
+
+	private UUID inserirMovimentacao(UUID mei, UUID produto, String tipo, int quantidade) {
+		UUID movimentacao = UUID.randomUUID();
+		jdbcTemplate.update("insert into movimentacao_estoque (id, tenant_id, produto_id, tipo, quantidade, "
+				+ "valor_unitario, valor_total, data, criado_em) values (?, ?, ?, ?, ?, 12.00, 12.00, current_date, now())",
+				movimentacao, mei, produto, tipo, quantidade);
+		return movimentacao;
+	}
+
 	private int inserirDespesa(UUID mei, String descricao, String tipo, String valorMensal, String percentual) {
 		return jdbcTemplate.update("insert into despesa (id, tenant_id, descricao, tipo, valor_mensal, percentual, "
 				+ "criado_em, atualizado_em) values (?, ?, ?, ?, ?, ?, now(), now())", UUID.randomUUID(), mei,

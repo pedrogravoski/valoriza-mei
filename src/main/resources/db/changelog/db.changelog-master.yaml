@@ -11,3 +11,6 @@ databaseChangeLog:
   - include:
       file: changes/003-criar-tabelas-despesa-parametros.yaml
       relativeToChangelogFile: true
+  - include:
+      file: changes/004-criar-tabelas-estoque-caixa.yaml
+      relativeToChangelogFile: true

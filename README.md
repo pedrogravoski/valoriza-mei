@@ -11,7 +11,8 @@ SaaS de gestão para o Microempreendedor Individual (MEI): precificação por ma
 | Produtos (`cadastro-produtos`) | Pronta: cadastro, listagem, consulta, alteração e exclusão, com custo direto e estoque mínimo |
 | Despesas (`despesas`) | Pronta: despesas fixas e variáveis, receita mensal estimada, margem de lucro e rateio (DF e DV) |
 | Precificação (`precificacao`) | Pronta: índice de markup e preço de venda sugerido dos produtos |
-| Estoque, fluxo de caixa e alertas | Planejados (ver `openspec/`) |
+| Estoque e fluxo de caixa (`estoque-fluxo-caixa`) | Pronta: compras e vendas, estoque atual e fluxo de caixa por período |
+| Alertas de ruptura e sugestões sazonais | Planejados (ver `openspec/`) |
 
 Endpoints disponíveis:
 
@@ -26,6 +27,9 @@ Endpoints disponíveis:
 | `GET /api/v1/despesas/rateio` | Exige token |
 | `GET` e `PUT /api/v1/parametros-financeiros` | Exige token |
 | `GET /api/v1/precificacao`, `GET /api/v1/precificacao/produtos/{id}` | Exige token |
+| `POST /api/v1/estoque/movimentacoes`, `GET /api/v1/estoque/movimentacoes` (filtro opcional `?produtoId=`) | Exige token |
+| `GET /api/v1/estoque/movimentacoes/{id}`, `GET /api/v1/estoque` | Exige token |
+| `GET /api/v1/fluxo-de-caixa` (período opcional `?inicio=AAAA-MM-DD&fim=AAAA-MM-DD`) | Exige token |
 
 Qualquer outra rota em `/api/v1` exige token e responde no formato padrão de erro.
 
@@ -87,7 +91,7 @@ Todos os comandos abaixo são executados na pasta do projeto, no PowerShell.
    .\mvnw.cmd verify
    ```
 
-   O esperado é `BUILD SUCCESS` com 209 testes.
+   O esperado é `BUILD SUCCESS` com 250 testes.
 
 3. **Suba a aplicação:**
 
@@ -172,6 +176,31 @@ Com produtos, despesas e parâmetros financeiros informados, em **Precificação
 - `GET /api/v1/precificacao/produtos/{id}` traz o preço sugerido de um único produto.
 - O preço é calculado a cada consulta: ao alterar o custo de um produto, uma despesa ou a margem, o preço sugerido já reflete o novo valor.
 
+### Estoque e fluxo de caixa pelo Swagger UI
+
+1. Em **Estoque → `POST /api/v1/estoque/movimentacoes`**, registre uma compra (entrada). O valor unitário é o custo direto do produto, então não é informado:
+
+   ```json
+   {"produtoId": "<id da furadeira>", "tipo": "ENTRADA", "quantidade": 10}
+   ```
+
+2. Registre uma venda (saída), informando o valor unitário da venda:
+
+   ```json
+   {"produtoId": "<id da furadeira>", "tipo": "SAIDA", "quantidade": 2, "valorUnitario": 300.00}
+   ```
+
+   A resposta traz o `estoqueAtual` do produto (8, neste exemplo).
+
+3. Em **`GET /api/v1/estoque`**, veja o estoque atual e o estoque mínimo de todos os produtos.
+4. Em **Fluxo de caixa → `GET /api/v1/fluxo-de-caixa`**, veja os lançamentos do mês atual. A compra aparece como saída de caixa de 1800.00 e a venda, como entrada de 600.00, com saldo -1200.00.
+
+Detalhes:
+- A data da movimentação é opcional (padrão: hoje), pode ser de um dia anterior e não pode ser futura (`"data": "2026-07-10"`).
+- Uma venda maior que o estoque atual é recusada com 422, e nada é gravado.
+- As movimentações não podem ser alteradas nem excluídas.
+- Um produto com movimentações não pode mais ser excluído (409).
+
 ### Segredo do token
 
 O token é assinado com o segredo `valorizamei.seguranca.jwt.segredo`. O `application.yaml` traz um valor padrão que serve **apenas para desenvolvimento e testes**. Em qualquer outro ambiente, defina a variável de ambiente `VALORIZAMEI_JWT_SEGREDO` com no mínimo 32 bytes; a aplicação não sobe com um segredo menor.
@@ -208,6 +237,9 @@ Usa o PostgreSQL 15 do `compose.yaml` (dados mantidos entre execuções, porta 5
 | `400` em `valorMensal` ou `percentual` ao registrar despesa | A despesa `FIXA` exige só o `valorMensal`, e a `VARIAVEL`, só o `percentual`. Envie apenas o campo do tipo escolhido. |
 | Rateio com `percentualDespesasFixas` nulo | A receita mensal estimada ainda não foi informada em `PUT /api/v1/parametros-financeiros`. |
 | `422` "Parâmetros financeiros não informados" na precificação | Informe a receita mensal estimada e a margem de lucro em `PUT /api/v1/parametros-financeiros`. |
+| `422` "Estoque insuficiente" | A venda pede mais unidades do que o estoque atual do produto. Registre antes a compra (entrada) ou reduza a quantidade. |
+| `409` "Produto com movimentações" ao excluir | O produto tem compras ou vendas registradas; a exclusão apagaria o histórico de estoque e de caixa. |
+| `400` em `data` ao movimentar | A data informada é futura. Use a data de hoje ou de um dia anterior, ou não informe a data. |
 | `422` "Markup inviável" | A soma DV + DF + ML chegou a 100% ou mais. Reduza a margem de lucro ou as despesas, ou aumente a receita mensal estimada (que reduz o DF). |
 
 ## Organização do código
@@ -217,6 +249,8 @@ Usa o PostgreSQL 15 do `compose.yaml` (dados mantidos entre execuções, porta 5
 - `br.com.valorizamei.produto`: cadastro dos produtos do MEI.
 - `br.com.valorizamei.despesa`: despesas fixas e variáveis, parâmetros financeiros (receita e margem) e rateio.
 - `br.com.valorizamei.precificacao`: índice de markup e preço de venda sugerido, calculados a partir dos services de `produto` e `despesa` (sem tabelas próprias).
+- `br.com.valorizamei.estoque`: compras e vendas (movimentações) e estoque atual; cada movimentação gera o lançamento de caixa pelo service de `caixa`.
+- `br.com.valorizamei.caixa`: lançamentos e consulta do fluxo de caixa por período.
 - `br.com.valorizamei.shared`: código transversal (configuração da OpenAPI, tratamento de erros, segurança e acesso ao MEI do token em `TenantAtual`); não depende de nenhuma feature.
 - Isolamento entre MEIs: toda tabela de negócio tem `tenant_id`, preenchido e filtrado pelo service a partir de `TenantAtual`, nunca a partir da requisição.
 - `src/main/resources/db/changelog`: migrações Liquibase (o schema só muda por elas; `ddl-auto=validate`).
