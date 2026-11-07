@@ -31,6 +31,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 
 import br.com.valorizamei.ApoioDeAutenticacao;
+import br.com.valorizamei.BancoDeTeste;
 import br.com.valorizamei.TestcontainersConfiguration;
 import br.com.valorizamei.shared.seguranca.ClaimsDoToken;
 
@@ -64,7 +65,7 @@ class ContaEIsolamentoTest {
 
 	@BeforeEach
 	void cadastrarLojaEPapelaria() throws Exception {
-		BancoDeContas.limpar(jdbcTemplate);
+		BancoDeTeste.limpar(jdbcTemplate);
 		ApoioDeAutenticacao apoio = new ApoioDeAutenticacao(mockMvc);
 		apoio.cadastrar(LOJA, CARLOS, EMAIL_CARLOS, ApoioDeAutenticacao.SENHA);
 		apoio.cadastrar(PAPELARIA, "Ana Souza", EMAIL_ANA, ApoioDeAutenticacao.SENHA);

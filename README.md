@@ -8,9 +8,19 @@ SaaS de gestão para o Microempreendedor Individual (MEI): precificação por ma
 |---|---|
 | Base da API (`fundacao-api`) | Pronta: PostgreSQL 15, Liquibase, Testcontainers, OpenAPI/Swagger e erros padronizados |
 | Autenticação e multi-tenant (`autenticacao-multitenant`) | Pronta: cadastro, login com JWT, senhas em BCrypt e isolamento por MEI |
-| Produtos, despesas, precificação, estoque, fluxo de caixa e alertas | Planejados (ver `openspec/`) |
+| Produtos (`cadastro-produtos`) | Pronta: cadastro, listagem, consulta, alteração e exclusão, com custo direto e estoque mínimo |
+| Despesas, precificação, estoque, fluxo de caixa e alertas | Planejados (ver `openspec/`) |
 
-Endpoints disponíveis: `POST /api/v1/auth/cadastro`, `POST /api/v1/auth/login` (públicos) e `GET /api/v1/conta` (exige token). Qualquer outra rota em `/api/v1` exige token e responde no formato padrão de erro.
+Endpoints disponíveis:
+
+| Endpoint | Acesso |
+|---|---|
+| `POST /api/v1/auth/cadastro`, `POST /api/v1/auth/login` | Públicos |
+| `GET /api/v1/conta` | Exige token |
+| `POST /api/v1/produtos`, `GET /api/v1/produtos` | Exige token |
+| `GET`, `PUT` e `DELETE /api/v1/produtos/{id}` | Exige token |
+
+Qualquer outra rota em `/api/v1` exige token e responde no formato padrão de erro.
 
 ## Tecnologias
 
@@ -70,7 +80,7 @@ Todos os comandos abaixo são executados na pasta do projeto, no PowerShell.
    .\mvnw.cmd verify
    ```
 
-   O esperado é `BUILD SUCCESS` com 90 testes.
+   O esperado é `BUILD SUCCESS` com 124 testes.
 
 3. **Suba a aplicação:**
 
@@ -108,6 +118,19 @@ Todos os endpoints em `/api/v1`, exceto o cadastro e o login, exigem o token no 
 
 O token vale 60 minutos (`valorizamei.seguranca.jwt.validade`). Depois disso, faça login de novo.
 
+### Produtos pelo Swagger UI
+
+Com o token informado no **Authorize**, em **Produtos → `POST /api/v1/produtos`**, envie, por exemplo:
+
+```json
+{"nome": "Furadeira de impacto 650 W", "custoDireto": 180.00, "estoqueMinimo": 3}
+```
+
+- O custo direto é em reais, maior que zero e com no máximo 2 casas decimais. O estoque mínimo é um inteiro maior ou igual a zero.
+- O nome não pode se repetir entre os produtos do mesmo MEI, sem diferenciar maiúsculas e minúsculas (resposta 409).
+- A resposta traz o `id` do produto, usado em `GET`, `PUT` e `DELETE /api/v1/produtos/{id}`. O `GET /api/v1/produtos` lista os produtos em ordem alfabética.
+- Cada MEI só enxerga os próprios produtos: o `id` de um produto de outro MEI responde 404.
+
 ### Segredo do token
 
 O token é assinado com o segredo `valorizamei.seguranca.jwt.segredo`. O `application.yaml` traz um valor padrão que serve **apenas para desenvolvimento e testes**. Em qualquer outro ambiente, defina a variável de ambiente `VALORIZAMEI_JWT_SEGREDO` com no mínimo 32 bytes; a aplicação não sobe com um segredo menor.
@@ -139,11 +162,14 @@ Usa o PostgreSQL 15 do `compose.yaml` (dados mantidos entre execuções, porta 5
 | `Port 8080 was already in use` | Outra instância está rodando. Pare-a com `Ctrl+C` ou feche o terminal dela. |
 | `401` com título "Não autenticado" | Token ausente, expirado ou de uma conta que não existe mais (o banco do `test-run` é recriado a cada subida). Faça o cadastro e o login de novo e use o novo token no **Authorize**. |
 | `401` com título "Credenciais inválidas" no login | E-mail ou senha errados. |
+| `404` "Produto não encontrado" | O `id` não existe ou é de um produto de outro MEI (o token é de outra conta). |
+| `409` "Produto já cadastrado" | Já existe um produto do MEI com o mesmo nome, mesmo com outra grafia de maiúsculas e minúsculas. |
 
 ## Organização do código
 
 - `br.com.valorizamei.<feature>.{controller,service,factory,repository,model,dto}`: cada funcionalidade em seu pacote, com camadas verificadas pelos testes de arquitetura (ArchUnit).
 - `br.com.valorizamei.autenticacao`: cadastro de conta, login e conta autenticada.
+- `br.com.valorizamei.produto`: cadastro dos produtos do MEI.
 - `br.com.valorizamei.shared`: código transversal (configuração da OpenAPI, tratamento de erros, segurança e acesso ao MEI do token em `TenantAtual`); não depende de nenhuma feature.
 - Isolamento entre MEIs: toda tabela de negócio tem `tenant_id`, preenchido e filtrado pelo service a partir de `TenantAtual`, nunca a partir da requisição.
 - `src/main/resources/db/changelog`: migrações Liquibase (o schema só muda por elas; `ddl-auto=validate`).

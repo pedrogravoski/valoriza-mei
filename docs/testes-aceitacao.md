@@ -2,6 +2,29 @@
 
 Registro dos testes funcionais executados pelo autor para cada requisito (seção 4.6 do artigo): ação executada, resultado esperado, resultado obtido e se o requisito foi atendido. Os testes automatizados citados rodam com `mvnw.cmd verify`; as verificações manuais foram feitas com a aplicação em execução (`mvnw.cmd spring-boot:test-run`).
 
+## RF01 — Permitir o cadastro de produtos com o respectivo custo direto de aquisição
+
+Change: `cadastro-produtos`. Data: 07/11/2026.
+
+| Ação executada | Resultado esperado | Resultado obtido | Atendido |
+|---|---|---|---|
+| `POST /api/v1/produtos` com "Furadeira de impacto 650 W", custo direto 180.00 e estoque mínimo 3 | 201 com o produto e o `Location` do novo recurso | 201 com `id`, nome, `custoDireto` 180.00 e `estoqueMinimo` 3; `Location` `/api/v1/produtos/{id}` | Sim |
+| Cadastro dos 6 produtos do estudo de caso e `GET /api/v1/produtos` | Lista com os 6 produtos em ordem alfabética | Alicate, Caixa, Furadeira, Jogo de chaves, Martelo e Trena, com custos e estoques mínimos do estudo de caso (`ConsultaDeProdutoTest`) | Sim |
+| Cadastro de "FURADEIRA DE IMPACTO 650 W" com a furadeira já cadastrada | 409, sem gravar outro produto | 409 "Produto já cadastrado"; a loja continua com um único produto com esse nome | Sim |
+| Cadastro com custo 0.00, custo 12.005, estoque mínimo -1 e corpo vazio | 400 com o campo inválido em `erros`, sem gravar | 400 "Dados inválidos" com `custoDireto`, `estoqueMinimo` ou os três campos obrigatórios (`CadastroDeProdutoTest`) | Sim |
+| `PUT /api/v1/produtos/{id}` da furadeira com custo 190.00 e estoque mínimo 4 | 200 com os valores novos, mantidos na consulta seguinte | 200 com `custoDireto` 190.00 e `estoqueMinimo` 4; a consulta devolve os mesmos valores | Sim |
+| `DELETE /api/v1/produtos/{id}` da "Caixa de ferramentas plástica" | 204 e o produto deixa de existir | 204; a consulta seguinte responde 404 e a listagem não traz o produto | Sim |
+| `GET /api/v1/produtos/{id}` com id inexistente e com `abc` | 404 e 400 no formato padrão de erro | 404 "Produto não encontrado" e 400 "Requisição inválida" | Sim |
+
+Isolamento dos produtos (RNF07):
+
+| Ação executada | Resultado esperado | Resultado obtido | Atendido |
+|---|---|---|---|
+| "Loja de Ferramentas" e "Papelaria Central" listam os produtos com os próprios tokens | Cada MEI recebe somente os próprios produtos | A loja recebe a furadeira; a papelaria recebe só o caderno (`ProdutoIsolamentoTest`) | Sim |
+| A papelaria envia `GET`, `PUT` e `DELETE` para o id da furadeira da loja | 404 nas três requisições, sem alterar a furadeira | 404 nas três; a furadeira continua com os dados da loja | Sim |
+| A loja cadastra um produto enviando `tenantId` da papelaria no corpo | O produto é gravado para a loja | Gravado para a loja; a listagem da papelaria continua vazia | Sim |
+| `GET /api/v1/produtos` sem token | 401 em Problem Details | 401 "Não autenticado" com `WWW-Authenticate: Bearer` | Sim |
+
 ## RF10 — Autenticar os usuários e garantir que cada MEI acesse somente os próprios dados
 
 Change: `autenticacao-multitenant`. Data: 03/11/2026.

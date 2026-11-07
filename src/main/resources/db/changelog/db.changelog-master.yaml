@@ -5,3 +5,6 @@ databaseChangeLog:
   - include:
       file: changes/001-criar-tabelas-mei-usuario.yaml
       relativeToChangelogFile: true
+  - include:
+      file: changes/002-criar-tabela-produto.yaml
+      relativeToChangelogFile: true

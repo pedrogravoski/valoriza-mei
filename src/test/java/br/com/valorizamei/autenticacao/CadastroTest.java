@@ -24,6 +24,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 
 import br.com.valorizamei.ApoioDeAutenticacao;
+import br.com.valorizamei.BancoDeTeste;
 import br.com.valorizamei.TestcontainersConfiguration;
 
 /**
@@ -51,7 +52,7 @@ class CadastroTest {
 
 	@BeforeEach
 	void limparContas() {
-		BancoDeContas.limpar(jdbcTemplate);
+		BancoDeTeste.limpar(jdbcTemplate);
 	}
 
 	@Test

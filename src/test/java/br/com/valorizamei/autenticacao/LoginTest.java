@@ -31,6 +31,7 @@ import org.springframework.test.web.servlet.ResultActions;
 import com.jayway.jsonpath.JsonPath;
 
 import br.com.valorizamei.ApoioDeAutenticacao;
+import br.com.valorizamei.BancoDeTeste;
 import br.com.valorizamei.TestcontainersConfiguration;
 
 /**
@@ -49,7 +50,7 @@ class LoginTest {
 
 	@BeforeEach
 	void cadastrarCarlos() throws Exception {
-		BancoDeContas.limpar(jdbcTemplate);
+		BancoDeTeste.limpar(jdbcTemplate);
 		new ApoioDeAutenticacao(mockMvc).cadastrar(LOJA, CARLOS, EMAIL_CARLOS, ApoioDeAutenticacao.SENHA);
 	}
 
