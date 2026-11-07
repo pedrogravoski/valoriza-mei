@@ -1,6 +1,7 @@
 package br.com.valorizamei.shared.config;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.startsWith;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -70,6 +71,26 @@ class DocumentacaoApiTest {
 		Set<String> caminhos = caminhosDocumentados();
 
 		assertThat(caminhos).isNotEmpty().allMatch(caminho -> caminho.startsWith("/api/v1"));
+	}
+
+	@Test
+	void esquemaBearerDeclaradoEExigidoPelaConta() throws Exception {
+		mockMvc.perform(get("/v3/api-docs"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.components.securitySchemes.bearerAuth.type").value("http"))
+			.andExpect(jsonPath("$.components.securitySchemes.bearerAuth.scheme").value("bearer"))
+			.andExpect(jsonPath("$.components.securitySchemes.bearerAuth.bearerFormat").value("JWT"))
+			.andExpect(jsonPath("$.security[0].bearerAuth").exists())
+			.andExpect(jsonPath("$.paths['/api/v1/conta'].get").exists())
+			.andExpect(jsonPath("$.paths['/api/v1/conta'].get.security").doesNotExist());
+	}
+
+	@Test
+	void cadastroELoginNaoExigemTokenNaDocumentacao() throws Exception {
+		mockMvc.perform(get("/v3/api-docs"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.paths['/api/v1/auth/cadastro'].post.security", hasSize(0)))
+			.andExpect(jsonPath("$.paths['/api/v1/auth/login'].post.security", hasSize(0)));
 	}
 
 	private Set<String> caminhosDocumentados() throws Exception {

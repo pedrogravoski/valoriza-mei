@@ -1,5 +1,6 @@
 package br.com.valorizamei.shared.erro;
 
+import static br.com.valorizamei.ApoioDeAutenticacao.bearer;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.hasSize;
@@ -12,16 +13,22 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
+import br.com.valorizamei.ApoioDeAutenticacao;
 import br.com.valorizamei.TestcontainersConfiguration;
 
+/**
+ * Os endpoints da API exigem token; cada teste usa o de uma conta criada para ele.
+ */
 @Import({ TestcontainersConfiguration.class, ErroTesteController.class })
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -32,9 +39,16 @@ class TratadorGlobalDeErrosTest {
 	@Autowired
 	private MockMvc mockMvc;
 
+	private String token;
+
+	@BeforeEach
+	void autenticar() throws Exception {
+		token = new ApoioDeAutenticacao(mockMvc).tokenDeNovaConta();
+	}
+
 	@Test
 	void rotaInexistenteRetorna404EmProblemDetails() throws Exception {
-		mockMvc.perform(get("/api/v1/recurso-inexistente"))
+		mockMvc.perform(get("/api/v1/recurso-inexistente").header(HttpHeaders.AUTHORIZATION, bearer(token)))
 			.andExpect(status().isNotFound())
 			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
 			.andExpect(jsonPath("$.status").value(404))
@@ -45,7 +59,8 @@ class TratadorGlobalDeErrosTest {
 
 	@Test
 	void camposObrigatoriosAusentesListamUmErroPorCampo() throws Exception {
-		mockMvc.perform(post(ENDPOINT).contentType(MediaType.APPLICATION_JSON).content("{}"))
+		mockMvc.perform(post(ENDPOINT).header(HttpHeaders.AUTHORIZATION, bearer(token))
+				.contentType(MediaType.APPLICATION_JSON).content("{}"))
 			.andExpect(status().isBadRequest())
 			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
 			.andExpect(jsonPath("$.status").value(400))
@@ -58,7 +73,8 @@ class TratadorGlobalDeErrosTest {
 
 	@Test
 	void mensagensDeValidacaoSaoEmPortugues() throws Exception {
-		mockMvc.perform(post(ENDPOINT).contentType(MediaType.APPLICATION_JSON).content("{\"valor\": 10}"))
+		mockMvc.perform(post(ENDPOINT).header(HttpHeaders.AUTHORIZATION, bearer(token))
+				.contentType(MediaType.APPLICATION_JSON).content("{\"valor\": 10}"))
 			.andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.erros[0].campo").value("nome"))
 			.andExpect(jsonPath("$.erros[0].mensagem").value("não deve estar em branco"));
@@ -66,7 +82,8 @@ class TratadorGlobalDeErrosTest {
 
 	@Test
 	void valorNegativoEmCampoQueExigeZeroOuMaisRetorna400() throws Exception {
-		mockMvc.perform(post(ENDPOINT).contentType(MediaType.APPLICATION_JSON)
+		mockMvc.perform(post(ENDPOINT).header(HttpHeaders.AUTHORIZATION, bearer(token))
+				.contentType(MediaType.APPLICATION_JSON)
 				.content("{\"nome\": \"Furadeira\", \"valor\": -1}"))
 			.andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.erros", hasSize(1)))
@@ -75,7 +92,8 @@ class TratadorGlobalDeErrosTest {
 
 	@Test
 	void jsonInvalidoRetorna400ComCorpoInvalido() throws Exception {
-		mockMvc.perform(post(ENDPOINT).contentType(MediaType.APPLICATION_JSON).content("{\"nome\": "))
+		mockMvc.perform(post(ENDPOINT).header(HttpHeaders.AUTHORIZATION, bearer(token))
+				.contentType(MediaType.APPLICATION_JSON).content("{\"nome\": "))
 			.andExpect(status().isBadRequest())
 			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
 			.andExpect(jsonPath("$.detail").value("O corpo da requisição é inválido."));
@@ -83,7 +101,7 @@ class TratadorGlobalDeErrosTest {
 
 	@Test
 	void metodoNaoAceitoRetorna405EmProblemDetails() throws Exception {
-		mockMvc.perform(delete(ENDPOINT))
+		mockMvc.perform(delete(ENDPOINT).header(HttpHeaders.AUTHORIZATION, bearer(token)))
 			.andExpect(status().isMethodNotAllowed())
 			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
 			.andExpect(jsonPath("$.status").value(405))
@@ -92,7 +110,7 @@ class TratadorGlobalDeErrosTest {
 
 	@Test
 	void falhaInesperadaRetorna500SemDetalhesInternos() throws Exception {
-		mockMvc.perform(post(ENDPOINT + "/falha"))
+		mockMvc.perform(post(ENDPOINT + "/falha").header(HttpHeaders.AUTHORIZATION, bearer(token)))
 			.andExpect(status().isInternalServerError())
 			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
 			.andExpect(jsonPath("$.status").value(500))
@@ -103,8 +121,20 @@ class TratadorGlobalDeErrosTest {
 	}
 
 	@Test
+	void erroDeNegocioUsaStatusTituloEDetalheInformados() throws Exception {
+		mockMvc.perform(post(ENDPOINT + "/negocio").header(HttpHeaders.AUTHORIZATION, bearer(token)))
+			.andExpect(status().isConflict())
+			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+			.andExpect(jsonPath("$.status").value(409))
+			.andExpect(jsonPath("$.title").value(ErroTesteController.TITULO_DE_NEGOCIO))
+			.andExpect(jsonPath("$.detail").value(ErroTesteController.DETALHE_DE_NEGOCIO))
+			.andExpect(jsonPath("$.instance").value(ENDPOINT + "/negocio"));
+	}
+
+	@Test
 	void requisicaoValidaNaoGeraErro() throws Exception {
-		mockMvc.perform(post(ENDPOINT).contentType(MediaType.APPLICATION_JSON)
+		mockMvc.perform(post(ENDPOINT).header(HttpHeaders.AUTHORIZATION, bearer(token))
+				.contentType(MediaType.APPLICATION_JSON)
 				.content("{\"nome\": \"Furadeira\", \"valor\": 180.00}"))
 			.andExpect(status().isCreated());
 	}

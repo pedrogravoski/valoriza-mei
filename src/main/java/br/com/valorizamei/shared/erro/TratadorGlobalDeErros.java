@@ -13,6 +13,8 @@ import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.ErrorResponse;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -35,7 +37,9 @@ public class TratadorGlobalDeErros extends ResponseEntityExceptionHandler {
 	/** Textos em português para os erros tratados pela classe base, por status. */
 	private static final Map<Integer, Mensagem> MENSAGENS_POR_STATUS = Map.of(
 			400, new Mensagem("Requisição inválida", "A requisição não pôde ser processada."),
-			404, new Mensagem("Recurso não encontrado", "O recurso solicitado não existe."),
+			401, new Mensagem("Não autenticado", "É necessário enviar um token de acesso válido."),
+			403, new Mensagem("Acesso negado", "Você não tem permissão para acessar este recurso."),
+			404,new Mensagem("Recurso não encontrado", "O recurso solicitado não existe."),
 			405, new Mensagem("Método não permitido", "O método HTTP utilizado não é suportado por este recurso."),
 			406, new Mensagem("Formato não aceito", "O formato de resposta solicitado não é suportado."),
 			415, new Mensagem("Tipo de conteúdo não suportado", "O tipo de conteúdo enviado não é suportado por este recurso."),
@@ -62,6 +66,21 @@ public class TratadorGlobalDeErros extends ResponseEntityExceptionHandler {
 		ProblemDetail problema = ProblemDetail.forStatusAndDetail(status, "O corpo da requisição é inválido.");
 		problema.setTitle("Requisição inválida");
 		return handleExceptionInternal(ex, problema, headers, status, request);
+	}
+
+	/** Requisição sem token válido, recusada pelo filtro de segurança. */
+	@ExceptionHandler(AuthenticationException.class)
+	ResponseEntity<Object> tratarNaoAutenticado(AuthenticationException ex, WebRequest request) {
+		HttpHeaders headers = new HttpHeaders();
+		headers.set(HttpHeaders.WWW_AUTHENTICATE, "Bearer");
+		HttpStatus status = HttpStatus.UNAUTHORIZED;
+		return handleExceptionInternal(ex, ProblemDetail.forStatus(status), headers, status, request);
+	}
+
+	@ExceptionHandler(AccessDeniedException.class)
+	ResponseEntity<Object> tratarAcessoNegado(AccessDeniedException ex, WebRequest request) {
+		HttpStatus status = HttpStatus.FORBIDDEN;
+		return handleExceptionInternal(ex, ProblemDetail.forStatus(status), new HttpHeaders(), status, request);
 	}
 
 	@ExceptionHandler(Exception.class)

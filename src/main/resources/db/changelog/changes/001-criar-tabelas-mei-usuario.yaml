@@ -1,0 +1,76 @@
+# MEI (tenant) e usuário que acessa a conta (change autenticacao-multitenant).
+databaseChangeLog:
+  - changeSet:
+      id: 001-criar-tabela-mei
+      author: valoriza-mei
+      changes:
+        - createTable:
+            tableName: mei
+            remarks: Microempreendedor individual; cada MEI é um tenant da aplicação.
+            columns:
+              - column:
+                  name: id
+                  type: uuid
+                  constraints:
+                    primaryKey: true
+                    primaryKeyName: pk_mei
+              - column:
+                  name: nome_negocio
+                  type: varchar(120)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: criado_em
+                  type: timestamp with time zone
+                  constraints:
+                    nullable: false
+
+  - changeSet:
+      id: 001-criar-tabela-usuario
+      author: valoriza-mei
+      changes:
+        - createTable:
+            tableName: usuario
+            remarks: Usuário que acessa a conta de um MEI; a senha é guardada somente como hash BCrypt.
+            columns:
+              - column:
+                  name: id
+                  type: uuid
+                  constraints:
+                    primaryKey: true
+                    primaryKeyName: pk_usuario
+              - column:
+                  name: tenant_id
+                  type: uuid
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_usuario_mei
+                    references: mei(id)
+              - column:
+                  name: nome
+                  type: varchar(120)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: email
+                  type: varchar(254)
+                  constraints:
+                    nullable: false
+                    unique: true
+                    uniqueConstraintName: uk_usuario_email
+              - column:
+                  name: senha_hash
+                  type: varchar(100)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: criado_em
+                  type: timestamp with time zone
+                  constraints:
+                    nullable: false
+        - createIndex:
+            tableName: usuario
+            indexName: idx_usuario_tenant_id
+            columns:
+              - column:
+                  name: tenant_id

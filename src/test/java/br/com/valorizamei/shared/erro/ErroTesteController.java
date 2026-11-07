@@ -17,7 +17,7 @@ import jakarta.validation.constraints.PositiveOrZero;
 
 /**
  * Endpoint existente só nos testes, usado para provocar erros de validação, método não
- * suportado e falha inesperada. Por ser {@link TestComponent}, não é encontrado pela
+ * suportado, erro de negócio e falha inesperada. Por ser {@link TestComponent}, não é encontrado pela
  * varredura de componentes: cada teste que precisa dele o importa explicitamente.
  */
 @TestComponent
@@ -26,6 +26,10 @@ import jakarta.validation.constraints.PositiveOrZero;
 public class ErroTesteController {
 
 	static final String MENSAGEM_TECNICA = "falha de conexão interna";
+
+	static final String TITULO_DE_NEGOCIO = "Regra de negócio violada";
+
+	static final String DETALHE_DE_NEGOCIO = "A operação viola uma regra de negócio de teste.";
 
 	@PostMapping
 	@ResponseStatus(HttpStatus.CREATED)
@@ -36,6 +40,11 @@ public class ErroTesteController {
 	@PostMapping("/falha")
 	void falhar() {
 		throw new IllegalStateException(MENSAGEM_TECNICA);
+	}
+
+	@PostMapping("/negocio")
+	void violarRegraDeNegocio() {
+		throw new ErroDeNegocioException(HttpStatus.CONFLICT, TITULO_DE_NEGOCIO, DETALHE_DE_NEGOCIO);
 	}
 
 	record ItemTesteRequest(

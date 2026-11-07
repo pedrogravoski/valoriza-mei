@@ -7,10 +7,10 @@ SaaS de gestão para o Microempreendedor Individual (MEI): precificação por ma
 | Item | Situação |
 |---|---|
 | Base da API (`fundacao-api`) | Pronta: PostgreSQL 15, Liquibase, Testcontainers, OpenAPI/Swagger e erros padronizados |
-| Autenticação e multi-tenant | Próxima etapa |
+| Autenticação e multi-tenant (`autenticacao-multitenant`) | Pronta: cadastro, login com JWT, senhas em BCrypt e isolamento por MEI |
 | Produtos, despesas, precificação, estoque, fluxo de caixa e alertas | Planejados (ver `openspec/`) |
 
-Ainda não há endpoints de negócio: o Swagger abre sem rotas e qualquer caminho em `/api/v1` responde 404 no formato padrão de erro.
+Endpoints disponíveis: `POST /api/v1/auth/cadastro`, `POST /api/v1/auth/login` (públicos) e `GET /api/v1/conta` (exige token). Qualquer outra rota em `/api/v1` exige token e responde no formato padrão de erro.
 
 ## Tecnologias
 
@@ -70,7 +70,7 @@ Todos os comandos abaixo são executados na pasta do projeto, no PowerShell.
    .\mvnw.cmd verify
    ```
 
-   O esperado é `BUILD SUCCESS` com 59 testes.
+   O esperado é `BUILD SUCCESS` com 90 testes.
 
 3. **Suba a aplicação:**
 
@@ -89,6 +89,28 @@ Todos os comandos abaixo são executados na pasta do projeto, no PowerShell.
    | <http://localhost:8080/actuator/health> | Saúde da aplicação (`{"status":"UP"}`) |
 
 5. **Para parar**, use `Ctrl+C` no terminal da aplicação.
+
+### Autenticação pelo Swagger UI
+
+Todos os endpoints em `/api/v1`, exceto o cadastro e o login, exigem o token no cabeçalho `Authorization: Bearer <token>`.
+
+1. Em **Autenticação → `POST /api/v1/auth/cadastro`**, clique em **Try it out** e envie, por exemplo:
+
+   ```json
+   {"nomeNegocio": "Loja de Ferramentas", "nome": "Carlos Silva", "email": "carlos@lojaferramentas.com.br", "senha": "Senha@2026"}
+   ```
+
+   A senha precisa ter de 8 a 72 caracteres. Com o `spring-boot:test-run` o banco é recriado a cada subida, então o cadastro precisa ser refeito.
+
+2. Em **`POST /api/v1/auth/login`**, envie o e-mail e a senha e copie o valor de `token` da resposta.
+3. Clique em **Authorize** (cadeado, no topo da página), cole o token (sem a palavra `Bearer`) e confirme.
+4. Em **Conta → `GET /api/v1/conta`**, execute: a resposta traz os dados da conta do token.
+
+O token vale 60 minutos (`valorizamei.seguranca.jwt.validade`). Depois disso, faça login de novo.
+
+### Segredo do token
+
+O token é assinado com o segredo `valorizamei.seguranca.jwt.segredo`. O `application.yaml` traz um valor padrão que serve **apenas para desenvolvimento e testes**. Em qualquer outro ambiente, defina a variável de ambiente `VALORIZAMEI_JWT_SEGREDO` com no mínimo 32 bytes; a aplicação não sobe com um segredo menor.
 
 ### Alternativa: banco persistente com `compose.yaml`
 
@@ -115,10 +137,14 @@ Usa o PostgreSQL 15 do `compose.yaml` (dados mantidos entre execuções, porta 5
 | `Cannot run program "docker"` ao subir | Foi usado `spring-boot:run` sem o comando `docker` no Windows. Use `spring-boot:test-run`. |
 | `status code: 403` ao baixar dependências | O Maven está usando outro repositório (ex.: Artifactory). Confira se `.mvn/maven.config` existe e rode com `-U`. |
 | `Port 8080 was already in use` | Outra instância está rodando. Pare-a com `Ctrl+C` ou feche o terminal dela. |
+| `401` com título "Não autenticado" | Token ausente, expirado ou de uma conta que não existe mais (o banco do `test-run` é recriado a cada subida). Faça o cadastro e o login de novo e use o novo token no **Authorize**. |
+| `401` com título "Credenciais inválidas" no login | E-mail ou senha errados. |
 
 ## Organização do código
 
 - `br.com.valorizamei.<feature>.{controller,service,factory,repository,model,dto}`: cada funcionalidade em seu pacote, com camadas verificadas pelos testes de arquitetura (ArchUnit).
-- `br.com.valorizamei.shared`: código transversal (configuração da OpenAPI e tratamento de erros); não depende de nenhuma feature.
+- `br.com.valorizamei.autenticacao`: cadastro de conta, login e conta autenticada.
+- `br.com.valorizamei.shared`: código transversal (configuração da OpenAPI, tratamento de erros, segurança e acesso ao MEI do token em `TenantAtual`); não depende de nenhuma feature.
+- Isolamento entre MEIs: toda tabela de negócio tem `tenant_id`, preenchido e filtrado pelo service a partir de `TenantAtual`, nunca a partir da requisição.
 - `src/main/resources/db/changelog`: migrações Liquibase (o schema só muda por elas; `ddl-auto=validate`).
 - `openspec/`: especificações e mudanças planejadas (fluxo spec-driven do OpenSpec).
