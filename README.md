@@ -10,7 +10,8 @@ SaaS de gestão para o Microempreendedor Individual (MEI): precificação por ma
 | Autenticação e multi-tenant (`autenticacao-multitenant`) | Pronta: cadastro, login com JWT, senhas em BCrypt e isolamento por MEI |
 | Produtos (`cadastro-produtos`) | Pronta: cadastro, listagem, consulta, alteração e exclusão, com custo direto e estoque mínimo |
 | Despesas (`despesas`) | Pronta: despesas fixas e variáveis, receita mensal estimada, margem de lucro e rateio (DF e DV) |
-| Precificação, estoque, fluxo de caixa e alertas | Planejados (ver `openspec/`) |
+| Precificação (`precificacao`) | Pronta: índice de markup e preço de venda sugerido dos produtos |
+| Estoque, fluxo de caixa e alertas | Planejados (ver `openspec/`) |
 
 Endpoints disponíveis:
 
@@ -24,6 +25,7 @@ Endpoints disponíveis:
 | `GET`, `PUT` e `DELETE /api/v1/despesas/{id}` | Exige token |
 | `GET /api/v1/despesas/rateio` | Exige token |
 | `GET` e `PUT /api/v1/parametros-financeiros` | Exige token |
+| `GET /api/v1/precificacao`, `GET /api/v1/precificacao/produtos/{id}` | Exige token |
 
 Qualquer outra rota em `/api/v1` exige token e responde no formato padrão de erro.
 
@@ -85,7 +87,7 @@ Todos os comandos abaixo são executados na pasta do projeto, no PowerShell.
    .\mvnw.cmd verify
    ```
 
-   O esperado é `BUILD SUCCESS` com 183 testes.
+   O esperado é `BUILD SUCCESS` com 209 testes.
 
 3. **Suba a aplicação:**
 
@@ -161,6 +163,15 @@ Os percentuais são em pontos percentuais: `3.00` é 3%.
 - Enquanto a receita não for informada, o rateio traz `receitaMensalEstimada` e `percentualDespesasFixas` nulos.
 - A descrição da despesa não pode se repetir no mesmo MEI, sem diferenciar maiúsculas e minúsculas (resposta 409).
 
+### Precificação pelo Swagger UI
+
+Com produtos, despesas e parâmetros financeiros informados, em **Precificação → `GET /api/v1/precificacao`**, a resposta traz os percentuais (DV, DF e ML), o `indiceMarkup` e o `precoSugerido` de cada produto.
+
+- Fórmulas da seção 2.2 do artigo: `Markup = 100 / [100 - (DV + DF + ML)]` e `PV = custo direto × markup`.
+- O markup é exibido com 4 casas, mas o preço usa o valor sem arredondamento e só é arredondado ao final. No estudo de caso, o markup é 1,6667 e a furadeira de custo 180,00 tem preço sugerido 300,00, e não 300,01.
+- `GET /api/v1/precificacao/produtos/{id}` traz o preço sugerido de um único produto.
+- O preço é calculado a cada consulta: ao alterar o custo de um produto, uma despesa ou a margem, o preço sugerido já reflete o novo valor.
+
 ### Segredo do token
 
 O token é assinado com o segredo `valorizamei.seguranca.jwt.segredo`. O `application.yaml` traz um valor padrão que serve **apenas para desenvolvimento e testes**. Em qualquer outro ambiente, defina a variável de ambiente `VALORIZAMEI_JWT_SEGREDO` com no mínimo 32 bytes; a aplicação não sobe com um segredo menor.
@@ -196,6 +207,8 @@ Usa o PostgreSQL 15 do `compose.yaml` (dados mantidos entre execuções, porta 5
 | `409` "Produto já cadastrado" | Já existe um produto do MEI com o mesmo nome, mesmo com outra grafia de maiúsculas e minúsculas. |
 | `400` em `valorMensal` ou `percentual` ao registrar despesa | A despesa `FIXA` exige só o `valorMensal`, e a `VARIAVEL`, só o `percentual`. Envie apenas o campo do tipo escolhido. |
 | Rateio com `percentualDespesasFixas` nulo | A receita mensal estimada ainda não foi informada em `PUT /api/v1/parametros-financeiros`. |
+| `422` "Parâmetros financeiros não informados" na precificação | Informe a receita mensal estimada e a margem de lucro em `PUT /api/v1/parametros-financeiros`. |
+| `422` "Markup inviável" | A soma DV + DF + ML chegou a 100% ou mais. Reduza a margem de lucro ou as despesas, ou aumente a receita mensal estimada (que reduz o DF). |
 
 ## Organização do código
 
@@ -203,6 +216,7 @@ Usa o PostgreSQL 15 do `compose.yaml` (dados mantidos entre execuções, porta 5
 - `br.com.valorizamei.autenticacao`: cadastro de conta, login e conta autenticada.
 - `br.com.valorizamei.produto`: cadastro dos produtos do MEI.
 - `br.com.valorizamei.despesa`: despesas fixas e variáveis, parâmetros financeiros (receita e margem) e rateio.
+- `br.com.valorizamei.precificacao`: índice de markup e preço de venda sugerido, calculados a partir dos services de `produto` e `despesa` (sem tabelas próprias).
 - `br.com.valorizamei.shared`: código transversal (configuração da OpenAPI, tratamento de erros, segurança e acesso ao MEI do token em `TenantAtual`); não depende de nenhuma feature.
 - Isolamento entre MEIs: toda tabela de negócio tem `tenant_id`, preenchido e filtrado pelo service a partir de `TenantAtual`, nunca a partir da requisição.
 - `src/main/resources/db/changelog`: migrações Liquibase (o schema só muda por elas; `ddl-auto=validate`).

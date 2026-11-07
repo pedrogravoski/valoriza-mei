@@ -60,6 +60,38 @@ Isolamento de despesas e parâmetros (RNF07):
 | A papelaria grava os parâmetros enviando o `tenantId` da loja no corpo | Só os parâmetros da papelaria mudam | Os parâmetros da loja continuam 14000.00 e 25.00 | Sim |
 | `GET /api/v1/despesas` e `GET /api/v1/parametros-financeiros` sem token | 401 em Problem Details | 401 "Não autenticado" com `WWW-Authenticate: Bearer` | Sim |
 
+## RF03 — Calcular o índice de markup a partir das despesas variáveis, das despesas fixas rateadas e da margem de lucro desejada
+
+Change: `precificacao`. Data: 07/11/2026.
+
+| Ação executada | Resultado esperado | Resultado obtido | Atendido |
+|---|---|---|---|
+| `GET /api/v1/precificacao` com o estudo de caso completo (DV 5%, DF 10%, ML 25%) | Markup = 100 / [100 − 40] = 1,6667 (seção 4.1) | `indiceMarkup` 1.6667, com DV 5.00, DF 10.00 e ML 25.00 | Sim |
+| Precificação de um MEI sem despesas, com margem 25% | Markup = 100 / 75 = 1,3333 | `indiceMarkup` 1.3333, DV e DF 0.00 | Sim |
+| Precificação antes de informar receita e margem | 422 orientando a informar os parâmetros | 422 "Parâmetros financeiros não informados" | Sim |
+| Margem 85% com DV 5% e DF 10% (soma 100%) | 422, porque o markup não existe | 422 "Markup inviável" com "100,00%" no detalhe | Sim |
+| Margem 90% (soma 105%) na consulta da furadeira | 422 com a soma no detalhe | 422 com "105,00%" no detalhe (`PrecificacaoTest`) | Sim |
+
+## RF04 — Calcular o preço de venda sugerido a partir do custo direto e do índice de markup
+
+Change: `precificacao`. Data: 07/11/2026.
+
+| Ação executada | Resultado esperado | Resultado obtido | Atendido |
+|---|---|---|---|
+| `GET /api/v1/precificacao/produtos/{id}` da furadeira (custo 180,00) | PV = 180,00 × 1,6667 = 300,00 (seção 4.1) | `precoSugerido` 300.00 e `indiceMarkup` 1.6667 | Sim |
+| `GET /api/v1/precificacao` com os 6 produtos do estudo de caso | PV de cada produto com o markup sem arredondamento | Alicate 46.67, Caixa 75.00, Furadeira 300.00, Jogo de chaves 41.67, Martelo 36.67 e Trena 20.00, em ordem alfabética | Sim |
+| Comparação com o markup arredondado (180,00 × 1,6667) | O preço não usa o markup de 4 casas | 300.00 na API; 300.01 seria o resultado com o markup arredondado (`PrecificacaoServiceTest`) | Sim |
+| Aluguel 1000,00, receita 3000,00 (DF 33,33%), margem 25% e produto de custo 100,00 | O preço usa o DF sem arredondamento | Markup 2.4000 e PV 240.00; com o DF arredondado seria 239.98 | Sim |
+| Alteração do custo da trena de 12,00 para 15,00 e nova consulta | O preço acompanha o novo custo | `precoSugerido` 25.00 | Sim |
+
+Isolamento da precificação (RNF07):
+
+| Ação executada | Resultado esperado | Resultado obtido | Atendido |
+|---|---|---|---|
+| Loja (estudo de caso) e papelaria (sem despesas, margem 20%, caderno de custo 16,00) consultam a precificação | Cada MEI com o próprio markup e os próprios produtos | Loja: markup 1.6667 e 6 produtos; papelaria: markup 1.2500 e o caderno a 20.00 | Sim |
+| A papelaria consulta o preço da furadeira da loja | 404 | 404 "Produto não encontrado" | Sim |
+| `GET /api/v1/precificacao` sem token | 401 em Problem Details | 401 "Não autenticado" com `WWW-Authenticate: Bearer` | Sim |
+
 ## RF10 — Autenticar os usuários e garantir que cada MEI acesse somente os próprios dados
 
 Change: `autenticacao-multitenant`. Data: 03/11/2026.

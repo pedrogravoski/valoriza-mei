@@ -20,44 +20,44 @@ import br.com.valorizamei.ApoioDeAutenticacao;
  * Contas, despesas e parâmetros do cenário de referência (estudo de caso da loja de ferramentas)
  * e chamadas aos endpoints de despesas e parâmetros financeiros com o token de cada MEI.
  */
-final class ApoioDeDespesas {
+public final class ApoioDeDespesas {
 
-	static final String DESPESAS = "/api/v1/despesas";
+	public static final String DESPESAS = "/api/v1/despesas";
 
-	static final String RATEIO = DESPESAS + "/rateio";
+	public static final String RATEIO = DESPESAS + "/rateio";
 
-	static final String PARAMETROS = "/api/v1/parametros-financeiros";
+	public static final String PARAMETROS = "/api/v1/parametros-financeiros";
 
-	static final String ALUGUEL = "Aluguel";
+	public static final String ALUGUEL = "Aluguel";
 
-	static final String INTERNET = "Internet e telefone";
+	public static final String INTERNET = "Internet e telefone";
 
-	static final String HONORARIOS = "Honorários contábeis";
+	public static final String HONORARIOS = "Honorários contábeis";
 
-	static final String TAXA_DE_CARTAO = "Taxa de cartão";
+	public static final String TAXA_DE_CARTAO = "Taxa de cartão";
 
-	static final String ENTREGA = "Custo de entrega";
+	public static final String ENTREGA = "Custo de entrega";
 
-	static final String EMAIL_LOJA = "carlos@lojaferramentas.com.br";
+	public static final String EMAIL_LOJA = "carlos@lojaferramentas.com.br";
 
-	static final String EMAIL_PAPELARIA = "ana@papelariacentral.com.br";
+	public static final String EMAIL_PAPELARIA = "ana@papelariacentral.com.br";
 
 	private final MockMvc mockMvc;
 
-	ApoioDeDespesas(MockMvc mockMvc) {
+	public ApoioDeDespesas(MockMvc mockMvc) {
 		this.mockMvc = mockMvc;
 	}
 
-	String tokenDaLoja() throws Exception {
+	public String tokenDaLoja() throws Exception {
 		return novaConta("Loja de Ferramentas", "Carlos Silva", EMAIL_LOJA);
 	}
 
-	String tokenDaPapelaria() throws Exception {
+	public String tokenDaPapelaria() throws Exception {
 		return novaConta("Papelaria Central", "Ana Souza", EMAIL_PAPELARIA);
 	}
 
 	/** Registra as 3 despesas fixas (total 1.400,00) e as 2 variáveis (5%) do estudo de caso. */
-	void registrarEstudoDeCaso(String token) throws Exception {
+	public void registrarEstudoDeCaso(String token) throws Exception {
 		registrarComSucesso(token, fixaJson(ALUGUEL, "1200.00"));
 		registrarComSucesso(token, fixaJson(INTERNET, "120.00"));
 		registrarComSucesso(token, fixaJson(HONORARIOS, "80.00"));
@@ -66,71 +66,71 @@ final class ApoioDeDespesas {
 	}
 
 	/** Registra a despesa, exige 201 e devolve o identificador gerado. */
-	String registrarComSucesso(String token, String json) throws Exception {
+	public String registrarComSucesso(String token, String json) throws Exception {
 		String resposta = registrar(token, json)
 			.andExpect(status().isCreated())
 			.andReturn().getResponse().getContentAsString();
 		return JsonPath.read(resposta, "$.id");
 	}
 
-	ResultActions registrar(String token, String json) throws Exception {
+	public ResultActions registrar(String token, String json) throws Exception {
 		return mockMvc.perform(post(DESPESAS).header(HttpHeaders.AUTHORIZATION, bearer(token))
 			.contentType(MediaType.APPLICATION_JSON)
 			.content(json));
 	}
 
-	ResultActions listar(String token) throws Exception {
+	public ResultActions listar(String token) throws Exception {
 		return mockMvc.perform(get(DESPESAS).header(HttpHeaders.AUTHORIZATION, bearer(token)));
 	}
 
-	ResultActions consultar(String token, String id) throws Exception {
+	public ResultActions consultar(String token, String id) throws Exception {
 		return mockMvc.perform(get(DESPESAS + "/" + id).header(HttpHeaders.AUTHORIZATION, bearer(token)));
 	}
 
-	ResultActions alterar(String token, String id, String json) throws Exception {
+	public ResultActions alterar(String token, String id, String json) throws Exception {
 		return mockMvc.perform(put(DESPESAS + "/" + id).header(HttpHeaders.AUTHORIZATION, bearer(token))
 			.contentType(MediaType.APPLICATION_JSON)
 			.content(json));
 	}
 
-	ResultActions excluir(String token, String id) throws Exception {
+	public ResultActions excluir(String token, String id) throws Exception {
 		return mockMvc.perform(delete(DESPESAS + "/" + id).header(HttpHeaders.AUTHORIZATION, bearer(token)));
 	}
 
-	ResultActions rateio(String token) throws Exception {
+	public ResultActions rateio(String token) throws Exception {
 		return mockMvc.perform(get(RATEIO).header(HttpHeaders.AUTHORIZATION, bearer(token)));
 	}
 
-	ResultActions consultarParametros(String token) throws Exception {
+	public ResultActions consultarParametros(String token) throws Exception {
 		return mockMvc.perform(get(PARAMETROS).header(HttpHeaders.AUTHORIZATION, bearer(token)));
 	}
 
-	ResultActions gravarParametros(String token, String json) throws Exception {
+	public ResultActions gravarParametros(String token, String json) throws Exception {
 		return mockMvc.perform(put(PARAMETROS).header(HttpHeaders.AUTHORIZATION, bearer(token))
 			.contentType(MediaType.APPLICATION_JSON)
 			.content(json));
 	}
 
-	void gravarParametrosComSucesso(String token, String receita, String margem) throws Exception {
+	public void gravarParametrosComSucesso(String token, String receita, String margem) throws Exception {
 		gravarParametros(token, parametrosJson(receita, margem)).andExpect(status().isOk());
 	}
 
-	static String fixaJson(String descricao, String valorMensal) {
+	public static String fixaJson(String descricao, String valorMensal) {
 		return despesaJson(descricao, "FIXA", valorMensal, null);
 	}
 
-	static String variavelJson(String descricao, String percentual) {
+	public static String variavelJson(String descricao, String percentual) {
 		return despesaJson(descricao, "VARIAVEL", null, percentual);
 	}
 
 	/** Os valores são escritos como números JSON exatamente como informados; nulo vira {@code null}. */
-	static String despesaJson(String descricao, String tipo, String valorMensal, String percentual) {
+	public static String despesaJson(String descricao, String tipo, String valorMensal, String percentual) {
 		return """
 				{"descricao": "%s", "tipo": "%s", "valorMensal": %s, "percentual": %s}
 				""".formatted(descricao, tipo, valorMensal, percentual);
 	}
 
-	static String parametrosJson(String receita, String margem) {
+	public static String parametrosJson(String receita, String margem) {
 		return """
 				{"receitaMensalEstimada": %s, "margemDeLucro": %s}
 				""".formatted(receita, margem);
