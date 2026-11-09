@@ -12,6 +12,7 @@ import org.springframework.data.repository.query.Param;
 
 import br.com.valorizamei.estoque.model.MovimentacaoEstoque;
 import br.com.valorizamei.estoque.model.SentidoMovimentacao;
+import br.com.valorizamei.estoque.model.VendasDoProduto;
 
 /**
  * Todas as consultas usadas pelo service filtram pelo MEI ({@code tenantId}) (RNF07).
@@ -30,6 +31,15 @@ public interface MovimentacaoEstoqueRepository extends JpaRepository<Movimentaca
 			and m.data between :de and :ate
 			""")
 	long somarQuantidade(@Param("tenantId") UUID tenantId, @Param("produtoId") UUID produtoId,
+			@Param("sentido") SentidoMovimentacao sentido, @Param("de") LocalDate de, @Param("ate") LocalDate ate);
+
+	@Query("""
+			select new br.com.valorizamei.estoque.model.VendasDoProduto(m.produtoId, sum(m.quantidade), sum(m.valorTotal))
+			from MovimentacaoEstoque m
+			where m.tenantId = :tenantId and m.sentido = :sentido and m.data between :de and :ate
+			group by m.produtoId
+			""")
+	List<VendasDoProduto> somarPorProduto(@Param("tenantId") UUID tenantId,
 			@Param("sentido") SentidoMovimentacao sentido, @Param("de") LocalDate de, @Param("ate") LocalDate ate);
 
 }

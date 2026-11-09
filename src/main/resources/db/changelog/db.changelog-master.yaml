@@ -14,3 +14,6 @@ databaseChangeLog:
   - include:
       file: changes/004-criar-tabelas-estoque-caixa.yaml
       relativeToChangelogFile: true
+  - include:
+      file: changes/005-criar-tabela-data-comemorativa.yaml
+      relativeToChangelogFile: true

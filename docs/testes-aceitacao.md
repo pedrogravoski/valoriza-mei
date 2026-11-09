@@ -128,6 +128,42 @@ Isolamento de estoque e caixa (RNF07):
 | Loja (10 furadeiras) e papelaria (50 cadernos) consultam estoque, movimentações e caixa | Cada MEI vê somente os próprios dados | Loja: furadeira 10 e saídas 1800.00; papelaria: caderno 50 e saídas 800.00; movimentação da loja dá 404 para a papelaria | Sim |
 | `GET /api/v1/estoque` e `GET /api/v1/fluxo-de-caixa` sem token | 401 em Problem Details | 401 "Não autenticado" com `WWW-Authenticate: Bearer` | Sim |
 
+## RF08 — Emitir alerta de ruptura quando o estoque de um produto atingir o mínimo definido
+
+Change: `alertas`. Data: 09/11/2026.
+
+| Ação executada | Resultado esperado | Resultado obtido | Atendido |
+|---|---|---|---|
+| `GET /api/v1/alertas` com o estoque do estudo de caso | Alerta somente para a Trena 5 m (4 ≤ 5), como na seção 4.1 | `ruptura` com a Trena 5 m, `estoqueAtual` 4 e `estoqueMinimo` 5 | Sim |
+| Produto com 5 unidades e mínimo 5 | Alerta (estoque igual ao mínimo) | Produto na `ruptura` (`AlertasTest`) | Sim |
+| Produto cadastrado sem movimentações e mínimo 3 | Alerta com estoque 0 | Produto na `ruptura` com `estoqueAtual` 0 | Sim |
+| Produto com estoque mínimo 0 | Sem alerta | `ruptura` vazia | Sim |
+| Alertas sem data comemorativa próxima (15/06/2026) | Ruptura informada mesmo sem sugestões | Trena na `ruptura`, `sugestoes` vazia (`AlertaServiceTest`) | Sim |
+
+## RF09 — Alertar sobre datas comemorativas próximas e sugerir promoções, reposições ou reajustes de preço com base no giro de cada produto
+
+Change: `alertas`. Data: 09/11/2026.
+
+| Ação executada | Resultado esperado | Resultado obtido | Atendido |
+|---|---|---|---|
+| `GET /api/v1/alertas` com a data atual 15/07/2026 | Dia dos Pais (09/08/2026) como data próxima, 25 dias antes | `datasComemorativas` com "Dia dos Pais", `data` 2026-08-09 e `diasRestantes` 25 | Sim |
+| Limite da janela de 30 dias | Dia dos Pais próximo em 10/07/2026 (30 dias) e não em 09/07/2026 (31 dias) | Confirmado em `CalendarioServiceTest` | Sim |
+| Alertas com o estoque e as vendas do estudo de caso | Reforçar furadeira (6 > 5) e trena (10 > 4); promoção da caixa de ferramentas (0 vendas, 10 em estoque) | `REFORCAR_ESTOQUE` para furadeira e trena e `PROMOCAO` para a caixa, com os motivos em português | Sim |
+| Furadeira vendida a 280,00 com preço sugerido de 300,00 | Sugestão de reajuste | `REAJUSTE_PRECO`: "Preço médio de venda de R$ 280,00 nos últimos 30 dias, abaixo do preço sugerido de R$ 300,00." | Sim |
+| Alertas sem parâmetros financeiros informados | Ruptura e demais sugestões, sem reajuste | 200 com ruptura, reforço e promoção, sem `REAJUSTE_PRECO` | Sim |
+| `GET /api/v1/datas-comemorativas` com a data atual 15/07/2026 | As 5 datas fixas com a próxima ocorrência | Dia dos Pais 09/08/2026, Crianças 12/10/2026, Black Friday 27/11/2026, Natal 25/12/2026 e Mães 09/05/2027 | Sim |
+| Cadastro de "Aniversário da cidade" em 01/08 | Data personalizada próxima, antes do Dia dos Pais | 201 com próxima ocorrência 2026-08-01 (17 dias); aparece nos alertas antes do Dia dos Pais | Sim |
+| Cadastro de datas em 31/04 e 29/02 | 400 no campo `dia` | 400 "o dia não existe em todos os anos neste mês" | Sim |
+| API em execução na data real (09/11/2026), com o estudo de caso e a furadeira vendida a 280,00 | Black Friday próxima e as sugestões do giro | Black Friday (18 dias) e a data personalizada; promoção da caixa, reforço e reajuste da furadeira, reforço da trena | Sim |
+
+Isolamento dos alertas (RNF07):
+
+| Ação executada | Resultado esperado | Resultado obtido | Atendido |
+|---|---|---|---|
+| Loja (estudo de caso) e papelaria (caderno com 2 unidades, mínimo 10, e data "Volta às aulas") consultam os alertas | Cada MEI com a própria ruptura, datas e sugestões | Loja: trena e Dia dos Pais; papelaria: caderno, "Volta às aulas" e Dia dos Pais (`AlertaIsolamentoTest`) | Sim |
+| A loja consulta, altera e exclui a data da papelaria | 404 nas três requisições | 404 nas três; a data continua na papelaria | Sim |
+| `GET /api/v1/alertas` e `GET /api/v1/datas-comemorativas` sem token | 401 em Problem Details | 401 "Não autenticado" com `WWW-Authenticate: Bearer` | Sim |
+
 ## RF10 — Autenticar os usuários e garantir que cada MEI acesse somente os próprios dados
 
 Change: `autenticacao-multitenant`. Data: 03/11/2026.

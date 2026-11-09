@@ -13,8 +13,10 @@ import br.com.valorizamei.estoque.dto.MovimentacaoRegistradaResponse;
 import br.com.valorizamei.estoque.dto.MovimentacaoRequest;
 import br.com.valorizamei.estoque.dto.MovimentacaoResponse;
 import br.com.valorizamei.estoque.dto.TipoMovimentacao;
+import br.com.valorizamei.estoque.dto.VendasDoProdutoResponse;
 import br.com.valorizamei.estoque.model.MovimentacaoEstoque;
 import br.com.valorizamei.estoque.model.SentidoMovimentacao;
+import br.com.valorizamei.estoque.model.VendasDoProduto;
 import br.com.valorizamei.produto.dto.ProdutoResponse;
 
 @Component
@@ -41,6 +43,11 @@ public class MovimentacaoEstoqueFactory {
 
 	public EstoqueProdutoResponse paraEstoque(ProdutoResponse produto, int estoqueAtual) {
 		return new EstoqueProdutoResponse(produto.id(), produto.nome(), estoqueAtual, produto.estoqueMinimo());
+	}
+
+	public VendasDoProdutoResponse paraVendas(VendasDoProduto vendas) {
+		return new VendasDoProdutoResponse(vendas.produtoId(), vendas.quantidade(),
+				vendas.valorTotal().setScale(2, RoundingMode.UNNECESSARY));
 	}
 
 	public SentidoMovimentacao paraSentido(TipoMovimentacao tipo) {

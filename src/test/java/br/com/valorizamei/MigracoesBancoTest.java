@@ -213,6 +213,36 @@ class MigracoesBancoTest {
 			.isInstanceOf(DuplicateKeyException.class);
 	}
 
+	@Test
+	void tabelaDeDataComemorativaEhCriada() {
+		Integer tabelas = jdbcTemplate.queryForObject(
+				"select count(*) from information_schema.tables where table_name = 'data_comemorativa'", Integer.class);
+
+		assertThat(tabelas).isEqualTo(1);
+	}
+
+	@Test
+	void bancoRecusaMesTreze() {
+		UUID mei = inserirMei();
+
+		assertThatThrownBy(() -> inserirDataComemorativa(mei, "Feira do bairro", 10, 13))
+			.isInstanceOf(DataIntegrityViolationException.class);
+	}
+
+	@Test
+	void nomeDeDataComemorativaEhUnicoNoMeiSemDiferenciarMaiusculas() {
+		UUID mei = inserirMei();
+		inserirDataComemorativa(mei, "Aniversário da cidade", 1, 8);
+
+		assertThatThrownBy(() -> inserirDataComemorativa(mei, "ANIVERSÁRIO DA CIDADE", 2, 8))
+			.isInstanceOf(DuplicateKeyException.class);
+	}
+
+	private void inserirDataComemorativa(UUID mei, String nome, int dia, int mes) {
+		jdbcTemplate.update("insert into data_comemorativa (id, tenant_id, nome, dia, mes, criado_em, atualizado_em) "
+				+ "values (?, ?, ?, ?, ?, now(), now())", UUID.randomUUID(), mei, nome, dia, mes);
+	}
+
 	private UUID inserirProdutoComId(UUID mei) {
 		UUID produto = UUID.randomUUID();
 		jdbcTemplate.update("insert into produto (id, tenant_id, nome, custo_direto, estoque_minimo, criado_em, "

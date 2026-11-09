@@ -20,6 +20,7 @@ import br.com.valorizamei.estoque.dto.MovimentacaoRegistradaResponse;
 import br.com.valorizamei.estoque.dto.MovimentacaoRequest;
 import br.com.valorizamei.estoque.dto.MovimentacaoResponse;
 import br.com.valorizamei.estoque.dto.TipoMovimentacao;
+import br.com.valorizamei.estoque.dto.VendasDoProdutoResponse;
 import br.com.valorizamei.estoque.factory.MovimentacaoEstoqueFactory;
 import br.com.valorizamei.estoque.model.MovimentacaoEstoque;
 import br.com.valorizamei.estoque.model.SaldoEstoque;
@@ -130,6 +131,17 @@ public class EstoqueService {
 	@Transactional(readOnly = true)
 	public long quantidadeVendida(UUID produtoId, LocalDate de, LocalDate ate) {
 		return movimentacaoRepository.somarQuantidade(tenantAtual.id(), produtoId, SentidoMovimentacao.SAIDA, de, ate);
+	}
+
+	/**
+	 * Unidades e valor vendidos por produto entre as datas (inclusivas), para o giro dos alertas
+	 * (RF09). Produtos sem vendas no período não aparecem.
+	 */
+	@Transactional(readOnly = true)
+	public List<VendasDoProdutoResponse> vendasPorProduto(LocalDate de, LocalDate ate) {
+		return movimentacaoRepository.somarPorProduto(tenantAtual.id(), SentidoMovimentacao.SAIDA, de, ate).stream()
+			.map(movimentacaoFactory::paraVendas)
+			.toList();
 	}
 
 	private int quantidadeEmEstoque(UUID tenantId, UUID produtoId) {

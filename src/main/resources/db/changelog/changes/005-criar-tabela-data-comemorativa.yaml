@@ -1,0 +1,54 @@
+# Datas comemorativas personalizadas de cada MEI (change alertas).
+databaseChangeLog:
+  - changeSet:
+      id: 005-criar-tabela-data-comemorativa
+      author: valoriza-mei
+      changes:
+        - createTable:
+            tableName: data_comemorativa
+            remarks: Data comemorativa cadastrada pelo MEI, repetida todo ano no dia e mês informados (RF09).
+            columns:
+              - column:
+                  name: id
+                  type: uuid
+                  constraints:
+                    primaryKey: true
+                    primaryKeyName: pk_data_comemorativa
+              - column:
+                  name: tenant_id
+                  type: uuid
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_data_comemorativa_mei
+                    references: mei(id)
+              - column:
+                  name: nome
+                  type: varchar(80)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: dia
+                  type: smallint
+                  constraints:
+                    nullable: false
+              - column:
+                  name: mes
+                  type: smallint
+                  constraints:
+                    nullable: false
+              - column:
+                  name: criado_em
+                  type: timestamp with time zone
+                  constraints:
+                    nullable: false
+              - column:
+                  name: atualizado_em
+                  type: timestamp with time zone
+                  constraints:
+                    nullable: false
+        # Restrição de verificação e índice por expressão não têm change portável no Liquibase.
+        - sql:
+            sql: >
+              alter table data_comemorativa add constraint ck_data_comemorativa_dia_mes
+                check (mes between 1 and 12 and dia between 1 and 31);
+              create unique index uk_data_comemorativa_tenant_nome on data_comemorativa (tenant_id, lower(nome));

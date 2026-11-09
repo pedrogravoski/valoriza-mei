@@ -60,7 +60,22 @@ public class PrecificacaoService {
 
 	@Transactional(readOnly = true)
 	public PrecificacaoResponse consultar() {
-		Percentuais percentuais = percentuaisDoMei();
+		return precificar(percentuaisDoMei());
+	}
+
+	/**
+	 * A mesma precificação de {@link #consultar()}, mas vazia, em vez de recusada com 422, quando
+	 * o markup não pode ser calculado (parâmetros financeiros ausentes ou soma DV + DF + ML de 100%
+	 * ou mais). Usada pelos alertas, que continuam funcionando sem o preço sugerido.
+	 */
+	@Transactional(readOnly = true)
+	public Optional<PrecificacaoResponse> consultarSeDisponivel() {
+		return lerPercentuais()
+			.filter(percentuais -> percentuais.soma().compareTo(CEM) < 0)
+			.map(this::precificar);
+	}
+
+	private PrecificacaoResponse precificar(Percentuais percentuais) {
 		List<PrecoSugeridoResponse> produtos = produtoService.listar().stream()
 			.map(produto -> precificacaoFactory.paraPrecoSugerido(produto,
 					precoSugerido(produto.custoDireto(), percentuais.soma())))
@@ -78,16 +93,25 @@ public class PrecificacaoService {
 				precoSugerido(produto.custoDireto(), soma));
 	}
 
+	/** Percentuais do MEI; recusa com 422 sem parâmetros financeiros ou com markup inviável. */
 	private Percentuais percentuaisDoMei() {
+		Percentuais percentuais = lerPercentuais().orElseThrow(() -> new ErroDeNegocioException(
+				HttpStatus.UNPROCESSABLE_CONTENT, "Parâmetros financeiros não informados",
+				"Informe a receita mensal estimada e a margem de lucro para calcular o preço de venda."));
+		somar(percentuais.despesasVariaveis(), percentuais.despesasFixas(), percentuais.margemDeLucro());
+		return percentuais;
+	}
+
+	/** DV, DF (sem arredondamento) e ML do MEI, sem verificar a soma; vazio sem parâmetros financeiros. */
+	private Optional<Percentuais> lerPercentuais() {
 		BigDecimal margemDeLucro = parametrosService.consultar().margemDeLucro();
 		Optional<BigDecimal> despesasFixas = rateioService.percentualDespesasFixas();
 		if (margemDeLucro == null || despesasFixas.isEmpty()) {
-			throw new ErroDeNegocioException(HttpStatus.UNPROCESSABLE_CONTENT, "Parâmetros financeiros não informados",
-					"Informe a receita mensal estimada e a margem de lucro para calcular o preço de venda.");
+			return Optional.empty();
 		}
 		BigDecimal despesasVariaveis = rateioService.percentualDespesasVariaveis();
-		BigDecimal soma = somar(despesasVariaveis, despesasFixas.get(), margemDeLucro);
-		return new Percentuais(despesasVariaveis, despesasFixas.get(), margemDeLucro, soma);
+		BigDecimal soma = despesasVariaveis.add(despesasFixas.get()).add(margemDeLucro);
+		return Optional.of(new Percentuais(despesasVariaveis, despesasFixas.get(), margemDeLucro, soma));
 	}
 
 	/** DV + DF + ML; recusa com 422 a soma de 100 ou mais, para a qual o markup não existe. */

@@ -12,7 +12,8 @@ SaaS de gestão para o Microempreendedor Individual (MEI): precificação por ma
 | Despesas (`despesas`) | Pronta: despesas fixas e variáveis, receita mensal estimada, margem de lucro e rateio (DF e DV) |
 | Precificação (`precificacao`) | Pronta: índice de markup e preço de venda sugerido dos produtos |
 | Estoque e fluxo de caixa (`estoque-fluxo-caixa`) | Pronta: compras e vendas, estoque atual e fluxo de caixa por período |
-| Alertas de ruptura e sugestões sazonais | Planejados (ver `openspec/`) |
+| Alertas (`alertas`) | Pronta: ruptura de estoque, datas comemorativas (fixas e personalizadas) e sugestões de reforço, promoção e reajuste |
+| CORS para o frontend Angular | Planejado (change `cors-frontend`) |
 
 Endpoints disponíveis:
 
@@ -30,6 +31,8 @@ Endpoints disponíveis:
 | `POST /api/v1/estoque/movimentacoes`, `GET /api/v1/estoque/movimentacoes` (filtro opcional `?produtoId=`) | Exige token |
 | `GET /api/v1/estoque/movimentacoes/{id}`, `GET /api/v1/estoque` | Exige token |
 | `GET /api/v1/fluxo-de-caixa` (período opcional `?inicio=AAAA-MM-DD&fim=AAAA-MM-DD`) | Exige token |
+| `GET /api/v1/alertas` | Exige token |
+| `GET` e `POST /api/v1/datas-comemorativas`; `GET`, `PUT` e `DELETE /api/v1/datas-comemorativas/{id}` | Exige token |
 
 Qualquer outra rota em `/api/v1` exige token e responde no formato padrão de erro.
 
@@ -91,7 +94,7 @@ Todos os comandos abaixo são executados na pasta do projeto, no PowerShell.
    .\mvnw.cmd verify
    ```
 
-   O esperado é `BUILD SUCCESS` com 250 testes.
+   O esperado é `BUILD SUCCESS` com 306 testes.
 
 3. **Suba a aplicação:**
 
@@ -201,6 +204,26 @@ Detalhes:
 - As movimentações não podem ser alteradas nem excluídas.
 - Um produto com movimentações não pode mais ser excluído (409).
 
+### Alertas e datas comemorativas pelo Swagger UI
+
+Em **Alertas → `GET /api/v1/alertas`**, a resposta traz:
+- `ruptura`: produtos com estoque atual menor ou igual ao mínimo. Um produto com estoque mínimo 0 nunca gera esse alerta.
+- `datasComemorativas`: as que acontecem nos próximos 30 dias. São fixas o Dia das Mães, o Dia dos Pais, o Dia das Crianças, a Black Friday e o Natal, e entram também as datas cadastradas pelo MEI.
+- `sugestoes`: aparecem só quando há data comemorativa próxima e usam as vendas dos últimos 30 dias de cada produto:
+  - `REFORCAR_ESTOQUE`: as vendas superaram o estoque atual;
+  - `PROMOCAO`: nenhuma venda, com estoque;
+  - `REAJUSTE_PRECO`: preço médio de venda abaixo do preço sugerido. Exige receita e margem informadas.
+
+Os alertas são calculados a cada consulta, com a data de hoje (`dataReferencia`).
+
+Para cadastrar uma data própria, que se repete todo ano, use **Datas comemorativas → `POST /api/v1/datas-comemorativas`**:
+
+```json
+{"nome": "Aniversário da cidade", "dia": 1, "mes": 8}
+```
+
+`GET /api/v1/datas-comemorativas` lista as datas fixas (com `id` nulo, que não podem ser alteradas) e as próprias, ordenadas pela próxima ocorrência. Fevereiro aceita até o dia 28, para que a data exista todo ano.
+
 ### Segredo do token
 
 O token é assinado com o segredo `valorizamei.seguranca.jwt.segredo`. O `application.yaml` traz um valor padrão que serve **apenas para desenvolvimento e testes**. Em qualquer outro ambiente, defina a variável de ambiente `VALORIZAMEI_JWT_SEGREDO` com no mínimo 32 bytes; a aplicação não sobe com um segredo menor.
@@ -240,6 +263,9 @@ Usa o PostgreSQL 15 do `compose.yaml` (dados mantidos entre execuções, porta 5
 | `422` "Estoque insuficiente" | A venda pede mais unidades do que o estoque atual do produto. Registre antes a compra (entrada) ou reduza a quantidade. |
 | `409` "Produto com movimentações" ao excluir | O produto tem compras ou vendas registradas; a exclusão apagaria o histórico de estoque e de caixa. |
 | `400` em `data` ao movimentar | A data informada é futura. Use a data de hoje ou de um dia anterior, ou não informe a data. |
+| Alertas sem `sugestoes` | Não há data comemorativa nos próximos 30 dias. A ruptura continua sendo informada. |
+| Alertas sem `REAJUSTE_PRECO` | A precificação não pode ser calculada (receita ou margem não informadas, ou markup inviável), ou os produtos foram vendidos pelo preço sugerido ou acima dele. |
+| `400` em `dia` ao cadastrar data comemorativa | O dia não existe naquele mês em todos os anos (ex.: 31/04 ou 29/02). |
 | `422` "Markup inviável" | A soma DV + DF + ML chegou a 100% ou mais. Reduza a margem de lucro ou as despesas, ou aumente a receita mensal estimada (que reduz o DF). |
 
 ## Organização do código
@@ -251,6 +277,8 @@ Usa o PostgreSQL 15 do `compose.yaml` (dados mantidos entre execuções, porta 5
 - `br.com.valorizamei.precificacao`: índice de markup e preço de venda sugerido, calculados a partir dos services de `produto` e `despesa` (sem tabelas próprias).
 - `br.com.valorizamei.estoque`: compras e vendas (movimentações) e estoque atual; cada movimentação gera o lançamento de caixa pelo service de `caixa`.
 - `br.com.valorizamei.caixa`: lançamentos e consulta do fluxo de caixa por período.
+- `br.com.valorizamei.calendario`: datas comemorativas fixas e personalizadas.
+- `br.com.valorizamei.alerta`: ruptura e sugestões, calculadas a partir dos services de `estoque`, `calendario` e `precificacao`.
 - `br.com.valorizamei.shared`: código transversal (configuração da OpenAPI, tratamento de erros, segurança e acesso ao MEI do token em `TenantAtual`); não depende de nenhuma feature.
 - Isolamento entre MEIs: toda tabela de negócio tem `tenant_id`, preenchido e filtrado pelo service a partir de `TenantAtual`, nunca a partir da requisição.
 - `src/main/resources/db/changelog`: migrações Liquibase (o schema só muda por elas; `ddl-auto=validate`).
