@@ -1,0 +1,1188 @@
+{
+  "info": {
+    "name": "Valoriza MEI API",
+    "description": "API REST do Valoriza MEI (Projeto Final II, UNISINOS).\n\nOrdem sugerida: 1. Autenticação (Cadastro e Login), 2. Produtos, 3. Despesas e parâmetros, 4. Precificação,\n5. Estoque e fluxo de caixa, 6. Datas comemorativas e alertas.\n\nO Login guarda o token na variável {{token}}, usada por todas as requisições protegidas (Bearer).\nOs cadastros guardam o id criado ({{produtoId}}, {{despesaId}}, {{movimentacaoId}}, {{dataComemorativaId}}).\nOs exemplos usam o estudo de caso da loja de ferramentas (seção 4.1 do artigo).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080"
+    },
+    {
+      "key": "email",
+      "value": "carlos@lojaferramentas.com.br"
+    },
+    {
+      "key": "senha",
+      "value": "Senha@2026"
+    },
+    {
+      "key": "token",
+      "value": ""
+    },
+    {
+      "key": "produtoId",
+      "value": ""
+    },
+    {
+      "key": "despesaId",
+      "value": ""
+    },
+    {
+      "key": "movimentacaoId",
+      "value": ""
+    },
+    {
+      "key": "dataComemorativaId",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "0. Saúde e documentação",
+      "description": "Endpoints públicos da aplicação.",
+      "item": [
+        {
+          "name": "Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/actuator/health",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "actuator",
+                "health"
+              ]
+            },
+            "description": "Saúde da aplicação: {\"status\":\"UP\"}.",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "Especificação OpenAPI",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v3/api-docs",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v3",
+                "api-docs"
+              ]
+            },
+            "description": "Especificação OpenAPI 3.1 (JSON). O Swagger UI fica em /swagger-ui.html.",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "1. Autenticação (RF10)",
+      "description": "Cadastro da conta, login (guarda o token) e conta autenticada.",
+      "item": [
+        {
+          "name": "Cadastro de conta",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/cadastro",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "cadastro"
+              ]
+            },
+            "description": "Cria o MEI e o usuário. 409 se o e-mail já existir (com o spring-boot:test-run o banco é recriado a cada subida). Senha de 8 a 72 caracteres.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nomeNegocio\": \"Loja de Ferramentas\",\n  \"nome\": \"Carlos Silva\",\n  \"email\": \"{{email}}\",\n  \"senha\": \"{{senha}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Devolve o token JWT (válido por 60 minutos) e o guarda em {{token}}.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"senha\": \"{{senha}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  pm.collectionVariables.set(\"token\", pm.response.json().token);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Conta autenticada",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/conta",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "conta"
+              ]
+            },
+            "description": "Dados da conta do token."
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Produtos (RF01)",
+      "description": "Cadastro de produtos com custo direto e estoque mínimo.",
+      "item": [
+        {
+          "name": "Cadastrar produto",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/produtos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "produtos"
+              ]
+            },
+            "description": "Guarda o id em {{produtoId}}. Custo com no máximo 2 casas; nome único no MEI (409).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nome\": \"Furadeira de impacto 650 W\",\n  \"custoDireto\": 180,\n  \"estoqueMinimo\": 3\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  pm.collectionVariables.set(\"produtoId\", pm.response.json().id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Cadastrar outro produto (Trena 5 m)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/produtos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "produtos"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nome\": \"Trena 5 m\",\n  \"custoDireto\": 12,\n  \"estoqueMinimo\": 5\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Listar produtos",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/produtos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "produtos"
+              ]
+            },
+            "description": "Produtos do MEI em ordem alfabética."
+          }
+        },
+        {
+          "name": "Consultar produto",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/produtos/{{produtoId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "produtos",
+                "{{produtoId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Alterar produto",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/produtos/{{produtoId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "produtos",
+                "{{produtoId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nome\": \"Furadeira de impacto 650 W\",\n  \"custoDireto\": 180,\n  \"estoqueMinimo\": 4\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Despesas e parâmetros (RF02, RF05)",
+      "description": "Despesas fixas (valor mensal) e variáveis (percentual), receita, margem e rateio.",
+      "item": [
+        {
+          "name": "Informar parâmetros financeiros",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/parametros-financeiros",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "parametros-financeiros"
+              ]
+            },
+            "description": "Receita mensal estimada (R$) e margem de lucro (pontos percentuais: 25.00 = 25%).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"receitaMensalEstimada\": 14000,\n  \"margemDeLucro\": 25\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Consultar parâmetros financeiros",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/parametros-financeiros",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "parametros-financeiros"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Registrar despesa fixa (Aluguel)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/despesas",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "despesas"
+              ]
+            },
+            "description": "Guarda o id em {{despesaId}}. A despesa FIXA informa só o valorMensal.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"descricao\": \"Aluguel\",\n  \"tipo\": \"FIXA\",\n  \"valorMensal\": 1200\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  pm.collectionVariables.set(\"despesaId\", pm.response.json().id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Registrar despesa fixa (Internet e telefone)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/despesas",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "despesas"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"descricao\": \"Internet e telefone\",\n  \"tipo\": \"FIXA\",\n  \"valorMensal\": 120\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Registrar despesa fixa (Honorários contábeis)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/despesas",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "despesas"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"descricao\": \"Honorários contábeis\",\n  \"tipo\": \"FIXA\",\n  \"valorMensal\": 80\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Registrar despesa variável (Taxa de cartão)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/despesas",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "despesas"
+              ]
+            },
+            "description": "A despesa VARIAVEL informa só o percentual sobre a venda (3.00 = 3%).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"descricao\": \"Taxa de cartão\",\n  \"tipo\": \"VARIAVEL\",\n  \"percentual\": 3\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Registrar despesa variável (Custo de entrega)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/despesas",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "despesas"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"descricao\": \"Custo de entrega\",\n  \"tipo\": \"VARIAVEL\",\n  \"percentual\": 2\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Listar despesas",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/despesas",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "despesas"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Listar despesas fixas",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/despesas?tipo=FIXA",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "despesas"
+              ],
+              "query": [
+                {
+                  "key": "tipo",
+                  "value": "FIXA",
+                  "description": "FIXA ou VARIAVEL"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Rateio (DF e DV)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/despesas/rateio",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "despesas",
+                "rateio"
+              ]
+            },
+            "description": "Estudo de caso: totalDespesasFixas 1400.00, DF 10.00 e DV 5.00."
+          }
+        },
+        {
+          "name": "Consultar despesa",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/despesas/{{despesaId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "despesas",
+                "{{despesaId}}"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Precificação (RF03, RF04)",
+      "description": "Markup = 100 / [100 - (DV + DF + ML)] e PV = custo × markup. Exige parâmetros financeiros (422).",
+      "item": [
+        {
+          "name": "Precificação do MEI",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/precificacao",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "precificacao"
+              ]
+            },
+            "description": "Estudo de caso: indiceMarkup 1.6667 e furadeira (custo 180.00) com precoSugerido 300.00."
+          }
+        },
+        {
+          "name": "Preço sugerido de um produto",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/precificacao/produtos/{{produtoId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "precificacao",
+                "produtos",
+                "{{produtoId}}"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. Estoque e fluxo de caixa (RF06, RF07)",
+      "description": "Entradas (compras) e saídas (vendas) de estoque, refletidas no caixa.",
+      "item": [
+        {
+          "name": "Registrar entrada (compra)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/estoque/movimentacoes",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "estoque",
+                "movimentacoes"
+              ]
+            },
+            "description": "A ENTRADA usa o custo direto do produto (não informe valorUnitario) e gera uma saída no caixa. Guarda o id em {{movimentacaoId}}. Data opcional (padrão: hoje), não futura.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"produtoId\": \"{{produtoId}}\",\n  \"tipo\": \"ENTRADA\",\n  \"quantidade\": 11\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  pm.collectionVariables.set(\"movimentacaoId\", pm.response.json().id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Registrar saída (venda)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/estoque/movimentacoes",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "estoque",
+                "movimentacoes"
+              ]
+            },
+            "description": "A SAIDA informa o valorUnitario da venda e gera uma entrada no caixa. Venda acima do estoque: 422.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"produtoId\": \"{{produtoId}}\",\n  \"tipo\": \"SAIDA\",\n  \"quantidade\": 6,\n  \"valorUnitario\": 300\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Listar movimentações",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/estoque/movimentacoes",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "estoque",
+                "movimentacoes"
+              ]
+            },
+            "description": "Da mais recente para a mais antiga."
+          }
+        },
+        {
+          "name": "Listar movimentações do produto",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/estoque/movimentacoes?produtoId={{produtoId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "estoque",
+                "movimentacoes"
+              ],
+              "query": [
+                {
+                  "key": "produtoId",
+                  "value": "{{produtoId}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Consultar movimentação",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/estoque/movimentacoes/{{movimentacaoId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "estoque",
+                "movimentacoes",
+                "{{movimentacaoId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Estoque atual",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/estoque",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "estoque"
+              ]
+            },
+            "description": "Todos os produtos com estoque atual e estoque mínimo."
+          }
+        },
+        {
+          "name": "Fluxo de caixa do mês atual",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/fluxo-de-caixa",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "fluxo-de-caixa"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Fluxo de caixa por período",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/fluxo-de-caixa?inicio=2026-11-01&fim=2026-11-30",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "fluxo-de-caixa"
+              ],
+              "query": [
+                {
+                  "key": "inicio",
+                  "value": "2026-11-01",
+                  "description": "AAAA-MM-DD, inclusiva"
+                },
+                {
+                  "key": "fim",
+                  "value": "2026-11-30",
+                  "description": "AAAA-MM-DD, inclusiva"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "6. Datas comemorativas e alertas (RF08, RF09)",
+      "description": "Calendário (datas fixas e personalizadas) e alertas de ruptura e sazonais.",
+      "item": [
+        {
+          "name": "Listar calendário",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/datas-comemorativas",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "datas-comemorativas"
+              ]
+            },
+            "description": "Datas fixas (id nulo) e personalizadas, ordenadas pela próxima ocorrência."
+          }
+        },
+        {
+          "name": "Cadastrar data personalizada",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/datas-comemorativas",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "datas-comemorativas"
+              ]
+            },
+            "description": "Repete todo ano. Guarda o id em {{dataComemorativaId}}. Fevereiro aceita até o dia 28.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nome\": \"Aniversário da cidade\",\n  \"dia\": 1,\n  \"mes\": 8\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  pm.collectionVariables.set(\"dataComemorativaId\", pm.response.json().id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Consultar data personalizada",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/datas-comemorativas/{{dataComemorativaId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "datas-comemorativas",
+                "{{dataComemorativaId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Alterar data personalizada",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/datas-comemorativas/{{dataComemorativaId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "datas-comemorativas",
+                "{{dataComemorativaId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nome\": \"Aniversário da cidade\",\n  \"dia\": 5,\n  \"mes\": 8\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Alertas",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/alertas",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "alertas"
+              ]
+            },
+            "description": "Ruptura (estoque <= mínimo), datas dos próximos 30 dias e, se houver alguma, sugestões REFORCAR_ESTOQUE, PROMOCAO e REAJUSTE_PRECO."
+          }
+        }
+      ]
+    },
+    {
+      "name": "7. Alterações e exclusões",
+      "description": "Ficam no fim porque mudam os resultados das pastas anteriores (rateio, markup e estoque).",
+      "item": [
+        {
+          "name": "Alterar despesa",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/despesas/{{despesaId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "despesas",
+                "{{despesaId}}"
+              ]
+            },
+            "description": "Reajuste do aluguel: o rateio e o markup passam a refletir o novo valor.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"descricao\": \"Aluguel\",\n  \"tipo\": \"FIXA\",\n  \"valorMensal\": 1300\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Excluir despesa",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/despesas/{{despesaId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "despesas",
+                "{{despesaId}}"
+              ]
+            },
+            "description": "204."
+          }
+        },
+        {
+          "name": "Excluir data personalizada",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/datas-comemorativas/{{dataComemorativaId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "datas-comemorativas",
+                "{{dataComemorativaId}}"
+              ]
+            },
+            "description": "204. As datas fixas não podem ser excluídas."
+          }
+        },
+        {
+          "name": "Excluir produto (com movimentações)",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/produtos/{{produtoId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "produtos",
+                "{{produtoId}}"
+              ]
+            },
+            "description": "Com compras ou vendas registradas, a exclusão é recusada com 409 \"Produto com movimentações\". Um produto sem movimentações é excluído com 204."
+          }
+        }
+      ]
+    }
+  ]
+}
