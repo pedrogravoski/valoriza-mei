@@ -1,6 +1,18 @@
 spring:
   application:
     name: valoriza-mei
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+  liquibase:
+    change-log: classpath:db/changelog/db.changelog-master.yaml
+  mvc:
+    problemdetails:
+      enabled: true
+  web:
+    locale: pt_BR
+    locale-resolver: fixed
 
 management:
   endpoints:
@@ -12,3 +24,20 @@ management:
       show-details: never
       probes:
         enabled: false
+
+springdoc:
+  api-docs:
+    version: openapi_3_1
+  paths-to-match: /api/v1/**
+
+valorizamei:
+  seguranca:
+    jwt:
+      # O valor padrão serve apenas para desenvolvimento e testes. Fora disso, defina a
+      # variável de ambiente VALORIZAMEI_JWT_SEGREDO com no mínimo 32 bytes.
+      segredo: ${VALORIZAMEI_JWT_SEGREDO:valoriza-mei-segredo-de-desenvolvimento-nao-usar-em-producao}
+      validade: 60m
+  cors:
+    # Origens do frontend autorizadas a chamar a API pelo navegador, separadas por vírgula.
+    # Fora do desenvolvimento, defina a variável de ambiente VALORIZAMEI_CORS_ORIGENS_PERMITIDAS.
+    origens-permitidas: ${VALORIZAMEI_CORS_ORIGENS_PERMITIDAS:http://localhost:4200}

@@ -1,0 +1,98 @@
+# Despesas fixas e variáveis e parâmetros financeiros do MEI (change despesas).
+databaseChangeLog:
+  - changeSet:
+      id: 003-criar-tabela-despesa
+      author: valoriza-mei
+      changes:
+        - createTable:
+            tableName: despesa
+            remarks: Despesa do MEI; a fixa tem valor mensal em reais e a variável, percentual sobre a venda (RF02).
+            columns:
+              - column:
+                  name: id
+                  type: uuid
+                  constraints:
+                    primaryKey: true
+                    primaryKeyName: pk_despesa
+              - column:
+                  name: tenant_id
+                  type: uuid
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_despesa_mei
+                    references: mei(id)
+              - column:
+                  name: descricao
+                  type: varchar(120)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: tipo
+                  type: varchar(10)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: valor_mensal
+                  type: numeric(12,2)
+              - column:
+                  name: percentual
+                  type: numeric(5,2)
+              - column:
+                  name: criado_em
+                  type: timestamp with time zone
+                  constraints:
+                    nullable: false
+              - column:
+                  name: atualizado_em
+                  type: timestamp with time zone
+                  constraints:
+                    nullable: false
+        # Restrições de verificação e índice por expressão não têm change portável no Liquibase.
+        # O "is not null" explícito é necessário: com o valor nulo, "valor > 0" é desconhecido, e o
+        # check aceita expressões desconhecidas.
+        - sql:
+            sql: >
+              alter table despesa add constraint ck_despesa_tipo check (tipo in ('FIXA', 'VARIAVEL'));
+              alter table despesa add constraint ck_despesa_valor check (
+                (tipo = 'FIXA' and valor_mensal is not null and valor_mensal > 0 and percentual is null)
+                or (tipo = 'VARIAVEL' and percentual is not null and percentual > 0 and percentual < 100
+                  and valor_mensal is null));
+              create unique index uk_despesa_tenant_descricao on despesa (tenant_id, lower(descricao));
+
+  - changeSet:
+      id: 003-criar-tabela-parametros-financeiros
+      author: valoriza-mei
+      changes:
+        - createTable:
+            tableName: parametros_financeiros
+            remarks: Receita mensal estimada e margem de lucro desejada de cada MEI (RF03, RF05).
+            columns:
+              - column:
+                  name: tenant_id
+                  type: uuid
+                  constraints:
+                    primaryKey: true
+                    primaryKeyName: pk_parametros_financeiros
+                    foreignKeyName: fk_parametros_financeiros_mei
+                    references: mei(id)
+              - column:
+                  name: receita_mensal_estimada
+                  type: numeric(12,2)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: margem_lucro
+                  type: numeric(5,2)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: atualizado_em
+                  type: timestamp with time zone
+                  constraints:
+                    nullable: false
+        - sql:
+            sql: >
+              alter table parametros_financeiros add constraint ck_parametros_financeiros_receita
+                check (receita_mensal_estimada > 0);
+              alter table parametros_financeiros add constraint ck_parametros_financeiros_margem
+                check (margem_lucro >= 0 and margem_lucro < 100);

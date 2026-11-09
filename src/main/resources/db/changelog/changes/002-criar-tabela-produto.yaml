@@ -1,0 +1,54 @@
+# Produtos do MEI com custo direto e estoque mínimo (change cadastro-produtos).
+databaseChangeLog:
+  - changeSet:
+      id: 002-criar-tabela-produto
+      author: valoriza-mei
+      changes:
+        - createTable:
+            tableName: produto
+            remarks: Produto vendido pelo MEI, com o custo direto de aquisição (RF01).
+            columns:
+              - column:
+                  name: id
+                  type: uuid
+                  constraints:
+                    primaryKey: true
+                    primaryKeyName: pk_produto
+              - column:
+                  name: tenant_id
+                  type: uuid
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_produto_mei
+                    references: mei(id)
+              - column:
+                  name: nome
+                  type: varchar(120)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: custo_direto
+                  type: numeric(12,2)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: estoque_minimo
+                  type: integer
+                  constraints:
+                    nullable: false
+              - column:
+                  name: criado_em
+                  type: timestamp with time zone
+                  constraints:
+                    nullable: false
+              - column:
+                  name: atualizado_em
+                  type: timestamp with time zone
+                  constraints:
+                    nullable: false
+        # Restrições de verificação e índice por expressão não têm change portável no Liquibase.
+        - sql:
+            sql: >
+              alter table produto add constraint ck_produto_custo_direto check (custo_direto > 0);
+              alter table produto add constraint ck_produto_estoque_minimo check (estoque_minimo >= 0);
+              create unique index uk_produto_tenant_nome on produto (tenant_id, lower(nome));
