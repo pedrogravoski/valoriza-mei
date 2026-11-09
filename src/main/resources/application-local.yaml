@@ -1,0 +1,12 @@
+# Perfil "local": usa o banco persistente do compose.yaml, subido à parte com
+# "docker compose up -d" (por exemplo, no Docker do WSL, sem o comando docker no Windows).
+# Ative com: .\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=local"
+spring:
+  docker:
+    compose:
+      # O banco já está no ar; a aplicação não tenta subir o compose pelo comando docker do Windows.
+      enabled: false
+  datasource:
+    url: ${VALORIZAMEI_DB_URL:jdbc:postgresql://localhost:5432/valorizamei}
+    username: ${VALORIZAMEI_DB_USUARIO:valorizamei}
+    password: ${VALORIZAMEI_DB_SENHA:valorizamei}

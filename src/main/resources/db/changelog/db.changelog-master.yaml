@@ -1,0 +1,19 @@
+# Changelog mestre do Valoriza MEI.
+# Cada change inclui seus changesets em db/changelog/changes/, com nomes numerados
+# (ex.: 001-usuarios.yaml), na ordem em que devem ser aplicados.
+databaseChangeLog:
+  - include:
+      file: changes/001-criar-tabelas-mei-usuario.yaml
+      relativeToChangelogFile: true
+  - include:
+      file: changes/002-criar-tabela-produto.yaml
+      relativeToChangelogFile: true
+  - include:
+      file: changes/003-criar-tabelas-despesa-parametros.yaml
+      relativeToChangelogFile: true
+  - include:
+      file: changes/004-criar-tabelas-estoque-caixa.yaml
+      relativeToChangelogFile: true
+  - include:
+      file: changes/005-criar-tabela-data-comemorativa.yaml
+      relativeToChangelogFile: true
