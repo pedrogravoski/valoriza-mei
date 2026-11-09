@@ -13,7 +13,7 @@ SaaS de gestão para o Microempreendedor Individual (MEI): precificação por ma
 | Precificação (`precificacao`) | Pronta: índice de markup e preço de venda sugerido dos produtos |
 | Estoque e fluxo de caixa (`estoque-fluxo-caixa`) | Pronta: compras e vendas, estoque atual e fluxo de caixa por período |
 | Alertas (`alertas`) | Pronta: ruptura de estoque, datas comemorativas (fixas e personalizadas) e sugestões de reforço, promoção e reajuste |
-| CORS para o frontend Angular | Planejado (change `cors-frontend`) |
+| CORS para o frontend Angular (`cors-frontend`) | Pronta: origens configuráveis (padrão `http://localhost:4200`) |
 
 Endpoints disponíveis:
 
@@ -94,7 +94,7 @@ Todos os comandos abaixo são executados na pasta do projeto, no PowerShell.
    .\mvnw.cmd verify
    ```
 
-   O esperado é `BUILD SUCCESS` com 306 testes.
+   O esperado é `BUILD SUCCESS` com 316 testes.
 
 3. **Suba a aplicação:**
 
@@ -228,6 +228,21 @@ Para cadastrar uma data própria, que se repete todo ano, use **Datas comemorati
 
 O token é assinado com o segredo `valorizamei.seguranca.jwt.segredo`. O `application.yaml` traz um valor padrão que serve **apenas para desenvolvimento e testes**. Em qualquer outro ambiente, defina a variável de ambiente `VALORIZAMEI_JWT_SEGREDO` com no mínimo 32 bytes; a aplicação não sobe com um segredo menor.
 
+### Acesso pelo frontend (CORS)
+
+O frontend Angular roda em outra origem e chama a API pelo navegador. A API só aceita as origens configuradas em `valorizamei.cors.origens-permitidas`, cujo padrão de desenvolvimento é `http://localhost:4200`. Em outro ambiente, defina a variável de ambiente `VALORIZAMEI_CORS_ORIGENS_PERMITIDAS`, com uma ou mais origens exatas separadas por vírgula:
+
+```powershell
+$env:VALORIZAMEI_CORS_ORIGENS_PERMITIDAS = "http://localhost:4200,https://app.valorizamei.com.br"
+```
+
+Como funciona:
+- A pré-checagem do navegador (`OPTIONS`) não exige token.
+- As respostas, inclusive o 401 de token expirado, trazem os cabeçalhos CORS, então o frontend consegue ler o erro e voltar para o login.
+- O cabeçalho `Location` dos cadastros fica visível para o frontend.
+- Uma origem não configurada recebe 403 "Origem não permitida".
+- O Swagger UI e clientes como o curl não são afetados.
+
 ### Alternativa: banco persistente com `compose.yaml`
 
 ```powershell
@@ -266,6 +281,7 @@ Usa o PostgreSQL 15 do `compose.yaml` (dados mantidos entre execuções, porta 5
 | Alertas sem `sugestoes` | Não há data comemorativa nos próximos 30 dias. A ruptura continua sendo informada. |
 | Alertas sem `REAJUSTE_PRECO` | A precificação não pode ser calculada (receita ou margem não informadas, ou markup inviável), ou os produtos foram vendidos pelo preço sugerido ou acima dele. |
 | `400` em `dia` ao cadastrar data comemorativa | O dia não existe naquele mês em todos os anos (ex.: 31/04 ou 29/02). |
+| Navegador bloqueia as chamadas do frontend ("blocked by CORS policy") ou `403` "Origem não permitida" | A origem do frontend não está em `VALORIZAMEI_CORS_ORIGENS_PERMITIDAS`. Informe a origem exata (protocolo, host e porta, sem barra no fim) e reinicie a API. |
 | `422` "Markup inviável" | A soma DV + DF + ML chegou a 100% ou mais. Reduza a margem de lucro ou as despesas, ou aumente a receita mensal estimada (que reduz o DF). |
 
 ## Organização do código

@@ -37,3 +37,7 @@ valorizamei:
       # variável de ambiente VALORIZAMEI_JWT_SEGREDO com no mínimo 32 bytes.
       segredo: ${VALORIZAMEI_JWT_SEGREDO:valoriza-mei-segredo-de-desenvolvimento-nao-usar-em-producao}
       validade: 60m
+  cors:
+    # Origens do frontend autorizadas a chamar a API pelo navegador, separadas por vírgula.
+    # Fora do desenvolvimento, defina a variável de ambiente VALORIZAMEI_CORS_ORIGENS_PERMITIDAS.
+    origens-permitidas: ${VALORIZAMEI_CORS_ORIGENS_PERMITIDAS:http://localhost:4200}
