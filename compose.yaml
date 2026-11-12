@@ -1,9 +1,17 @@
 services:
   postgres:
     image: 'postgres:15'
+    # Volta sozinho sempre que o Docker iniciar (por exemplo, ao abrir o WSL), até um "docker compose stop".
+    restart: unless-stopped
     environment:
       - 'POSTGRES_DB=valorizamei'
       - 'POSTGRES_USER=valorizamei'
       - 'POSTGRES_PASSWORD=valorizamei'
     ports:
       - '5432:5432'
+    volumes:
+      # Volume nomeado: os dados sobrevivem a "docker compose down" e à recriação do contêiner.
+      - 'valorizamei-dados:/var/lib/postgresql/data'
+
+volumes:
+  valorizamei-dados:

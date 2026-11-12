@@ -243,13 +243,38 @@ Como funciona:
 - Uma origem não configurada recebe 403 "Origem não permitida".
 - O Swagger UI e clientes como o curl não são afetados.
 
-### Alternativa: banco persistente com `compose.yaml`
+### Banco persistente para o dia a dia (`compose.yaml`)
 
-```powershell
-.\mvnw.cmd spring-boot:run
-```
+O `spring-boot:test-run` recria o banco a cada subida. Para manter os dados entre execuções, use o PostgreSQL 15 do `compose.yaml`:
+- porta 5432;
+- banco, usuário e senha `valorizamei`;
+- dados no volume `valorizamei-dados`, que sobrevive a `docker compose down`.
 
-Usa o PostgreSQL 15 do `compose.yaml` (dados mantidos entre execuções, porta 5432, banco/usuário/senha `valorizamei`). Exige o comando `docker` disponível no Windows, como no Docker Desktop; com o Docker apenas no WSL, use o `spring-boot:test-run`.
+**Com o Docker do WSL:**
+
+1. **Abra um terminal do Ubuntu e deixe-o aberto.** O WSL desliga quando nenhum terminal do Ubuntu está aberto, e o Docker e o banco param junto (o DBeaver mostra `Connection to localhost:5432 refused`). Os dados não se perdem: ficam no volume.
+
+2. **Só na primeira vez**, crie o banco. Rode no PowerShell, **na pasta do projeto**, onde está o `compose.yaml`:
+
+   ```powershell
+   wsl docker compose up -d
+   ```
+
+   O contêiner tem `restart: unless-stopped`. Nas próximas vezes, ele volta sozinho assim que o terminal do Ubuntu é aberto, sem repetir este passo. Confira com `wsl docker ps`: deve aparecer `valoriza-mei-postgres-1` com `0.0.0.0:5432->5432/tcp`.
+
+3. Suba a API com o perfil `local`, que usa esse banco em vez de subir o compose pelo Windows:
+
+   ```powershell
+   .\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=local"
+   ```
+
+Para parar o banco, rode `wsl docker compose stop` na pasta do projeto. Ele só volta com um novo `wsl docker compose up -d`. Já `wsl docker compose down -v` apaga os dados.
+
+O perfil `local` (`application-local.yaml`) aceita outro banco pelas variáveis `VALORIZAMEI_DB_URL`, `VALORIZAMEI_DB_USUARIO` e `VALORIZAMEI_DB_SENHA`.
+
+**Com o Docker Desktop**, basta `.\mvnw.cmd spring-boot:run`: o Spring Boot sobe o `compose.yaml` sozinho.
+
+**DBeaver ou outro cliente SQL:** nova conexão PostgreSQL com host `localhost`, porta `5432`, e `valorizamei` no banco de dados, no usuário e na senha. As tabelas ficam no schema `public`.
 
 ## Comandos úteis
 
@@ -258,6 +283,8 @@ Usa o PostgreSQL 15 do `compose.yaml` (dados mantidos entre execuções, porta 5
 | `.\mvnw.cmd verify` | Compila e roda todos os testes |
 | `.\mvnw.cmd test -Dtest=ArquiteturaTest` | Só as regras de arquitetura (não precisa de Docker) |
 | `.\mvnw.cmd spring-boot:test-run` | Sobe a API com banco descartável |
+| `wsl docker compose up -d` | Sobe o banco persistente no Docker do WSL |
+| `.\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=local"` | Sobe a API com o banco persistente |
 | `.\mvnw.cmd -U verify` | Força o Maven a tentar de novo downloads que falharam antes |
 
 ## Problemas comuns
@@ -265,7 +292,9 @@ Usa o PostgreSQL 15 do `compose.yaml` (dados mantidos entre execuções, porta 5
 | Sintoma | Causa provável e solução |
 |---|---|
 | `Could not find a valid Docker environment` nos testes | Docker não acessível. Abra o terminal do Ubuntu, confira `curl.exe http://localhost:2375/version` e o arquivo `.testcontainers.properties`. |
-| `Cannot run program "docker"` ao subir | Foi usado `spring-boot:run` sem o comando `docker` no Windows. Use `spring-boot:test-run`. |
+| `Cannot run program "docker"` ao subir | Foi usado `spring-boot:run` sem o comando `docker` no Windows. Use o perfil `local` com o banco subido no WSL (`wsl docker compose up -d`), ou o `spring-boot:test-run`. |
+| `Connection to localhost:5432 refused` com o perfil `local` ou no DBeaver | O WSL desligou e o banco parou junto. Abra um terminal do Ubuntu e deixe-o aberto: o banco volta sozinho. Se não voltar (ex.: depois de um `docker compose stop`), rode `wsl docker compose up -d` na pasta do projeto. |
+| `no configuration file provided: not found` | O `wsl docker compose` foi rodado fora da pasta do projeto. Entre na pasta (`cd` até `valoriza-mei`) ou use `wsl --cd "<pasta do projeto>" docker compose up -d`. |
 | `status code: 403` ao baixar dependências | O Maven está usando outro repositório (ex.: Artifactory). Confira se `.mvn/maven.config` existe e rode com `-U`. |
 | `Port 8080 was already in use` | Outra instância está rodando. Pare-a com `Ctrl+C` ou feche o terminal dela. |
 | `401` com título "Não autenticado" | Token ausente, expirado ou de uma conta que não existe mais (o banco do `test-run` é recriado a cada subida). Faça o cadastro e o login de novo e use o novo token no **Authorize**. |
